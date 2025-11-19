@@ -1591,6 +1591,8 @@
     let allocationChart = null;
     let autoCalculateTimeout = null;
 
+    // ==================== EXPENSE CALCULATION FUNCTIONS ====================
+
     function formatCurrency(amount) {
         try {
             if (amount === null || amount === undefined || isNaN(amount)) {
@@ -1622,14 +1624,6 @@
             }
             return balance;
         }) || currentBalance;
-    }
-
-    function calculateSustainableWithdrawal(superBalance, retirementYears, returnRate, inflationRate) {
-        return safeCalculate(() => {
-            const conservativeWithdrawalRate = 0.04;
-            const dynamicRate = Math.min(0.05, 0.04 + (returnRate - inflationRate - 0.02));
-            return superBalance * dynamicRate;
-        }) || (superBalance * 0.04);
     }
 
     function validateFinancialInput(value, fieldName) {
@@ -1689,6 +1683,295 @@
             
             return Math.min(pensionFromAssets, pensionFromIncome);
         }) || 0;
+    }
+
+    /**
+     * Calculate detailed retirement expenses with realistic adjustments
+     */
+    function calculateDetailedRetirementExpenses(currentExpenses, retirementExpenseRate, dependents, annualChildCost, educationCosts, currentAge, retirementAge) {
+        return safeCalculate(() => {
+            const yearsToRetirement = retirementAge - currentAge;
+            const baseRate = retirementExpenseRate / 100;
+            
+            // Start with base retirement expenses
+            let retirementExpenses = currentExpenses * baseRate;
+            
+            // Remove work-related costs (typically 15-20% of pre-retirement expenses)
+            const workRelatedCosts = currentExpenses * 0.17;
+            retirementExpenses -= workRelatedCosts;
+            
+            // Calculate dependent adjustments
+            const dependentAdjustments = calculateDependentAdjustments(dependents, annualChildCost, educationCosts, yearsToRetirement);
+            retirementExpenses += dependentAdjustments.additionalCosts;
+            retirementExpenses -= dependentAdjustments.costReductions;
+            
+            // Add age-specific increases
+            retirementExpenses += calculateAgeRelatedCostIncreases(currentExpenses, retirementAge);
+            
+            // Ensure minimum reasonable expenses
+            const minimumExpenses = currentExpenses * 0.6; // Minimum 60% of current
+            retirementExpenses = Math.max(retirementExpenses, minimumExpenses);
+            
+            return {
+                total: retirementExpenses,
+                workCostReduction: workRelatedCosts,
+                dependentAdjustments: dependentAdjustments,
+                ageRelatedIncreases: calculateAgeRelatedCostIncreases(currentExpenses, retirementAge)
+            };
+        }) || (currentExpenses * 0.7);
+    }
+
+    /**
+     * Calculate how dependents affect retirement expenses
+     */
+    function calculateDependentAdjustments(dependents, annualChildCost, educationCosts, yearsToRetirement) {
+        return safeCalculate(() => {
+            let additionalCosts = 0;
+            let costReductions = 0;
+            
+            dependents.forEach(dependent => {
+                const currentAge = parseInt(dependent.age);
+                const ageAtRetirement = currentAge + yearsToRetirement;
+                const supportUntilAge = parseInt(dependent.supportUntil);
+                
+                // If dependent will still be at home at retirement
+                if (ageAtRetirement < supportUntilAge) {
+                    additionalCosts += annualChildCost;
+                    
+                    // Add education costs if still in education
+                    if (dependent.educationType === 'secondary' && ageAtRetirement < 18) {
+                        additionalCosts += (educationCosts / dependents.length) * 0.8;
+                    } else if ((dependent.educationType === 'university' || dependent.educationType === 'tafe') && ageAtRetirement < supportUntilAge) {
+                        additionalCosts += (educationCosts / dependents.length) * 0.6;
+                    }
+                } else {
+                    // Dependent will have left home - reduce costs
+                    costReductions += annualChildCost;
+                    
+                    if (ageAtRetirement >= 18 && dependent.educationType !== 'none') {
+                        costReductions += (educationCosts / dependents.length) * 0.8;
+                    }
+                }
+            });
+            
+            return {
+                additionalCosts: additionalCosts,
+                costReductions: costReductions,
+                dependentsAtRetirement: dependents.filter(dep => {
+                    const ageAtRetirement = parseInt(dep.age) + yearsToRetirement;
+                    return ageAtRetirement < parseInt(dep.supportUntil);
+                })
+            };
+        }) || { additionalCosts: 0, costReductions: 0, dependentsAtRetirement: [] };
+    }
+
+    /**
+     * Calculate age-related cost increases for retirement
+     */
+    function calculateAgeRelatedCostIncreases(currentExpenses, retirementAge) {
+        return safeCalculate(() => {
+            let increases = 0;
+            
+            // Healthcare costs increase with age
+            const healthcareIncrease = currentExpenses * 0.08;
+            increases += healthcareIncrease;
+            
+            // Home maintenance increases (properties age)
+            const maintenanceIncrease = currentExpenses * 0.03;
+            increases += maintenanceIncrease;
+            
+            // Leisure time activities may increase initially
+            if (retirementAge < 75) {
+                const leisureIncrease = currentExpenses * 0.04;
+                increases += leisureIncrease;
+            }
+            
+            return increases;
+        }) || 0;
+    }
+
+    /**
+     * Calculate sustainable withdrawal amount using multiple methods
+     */
+    function calculateSustainableWithdrawal(superBalance, retirementYears, returnRate, inflationRate, retirementAge) {
+        return safeCalculate(() => {
+            // Method 1: Standard 4% rule
+            const standardWithdrawal = superBalance * 0.04;
+            
+            // Method 2: Dynamic withdrawal based on age and market conditions
+            let dynamicRate = 0.04;
+            
+            // Adjust for longer retirement periods
+            if (retirementYears > 30) dynamicRate = 0.035;
+            if (retirementYears < 20) dynamicRate = 0.045;
+            
+            // Adjust for market conditions (simplified)
+            const realReturn = returnRate - inflationRate;
+            if (realReturn < 0.02) dynamicRate = Math.min(dynamicRate, 0.035);
+            if (realReturn > 0.06) dynamicRate = Math.min(dynamicRate, 0.05);
+            
+            const dynamicWithdrawal = superBalance * dynamicRate;
+            
+            // Method 3: Age-based percentage
+            let ageBasedRate = 0.04;
+            if (retirementAge >= 80) ageBasedRate = 0.055;
+            else if (retirementAge >= 70) ageBasedRate = 0.045;
+            
+            const ageBasedWithdrawal = superBalance * ageBasedRate;
+            
+            // Use the most conservative approach for safety
+            return Math.min(standardWithdrawal, dynamicWithdrawal, ageBasedWithdrawal);
+        }) || (superBalance * 0.04);
+    }
+
+    /**
+     * Calculate retirement expenses with dependents consideration
+     */
+    function calculateRetirementExpensesWithDependents(scenarioAge, currentAge, currentExpenses, retirementExpenseRate, 
+                                                     dependents, educationCosts, annualChildCost, inflationRate) {
+        return safeCalculate(() => {
+            const yearsToRetirement = scenarioAge - currentAge;
+            
+            // Calculate base expenses without dependents
+            const baseExpenses = currentExpenses - (dependents.length * annualChildCost) - educationCosts;
+            
+            // Calculate which dependents will still be at home
+            const dependentsAtRetirement = dependents.filter(dep => {
+                const ageAtRetirement = parseInt(dep.age) + yearsToRetirement;
+                return ageAtRetirement < parseInt(dep.supportUntil);
+            });
+            
+            // Calculate remaining costs
+            let remainingChildCosts = dependentsAtRetirement.length * annualChildCost;
+            let remainingEducationCosts = 0;
+            
+            dependentsAtRetirement.forEach(dep => {
+                const ageAtRetirement = parseInt(dep.age) + yearsToRetirement;
+                if (dep.educationType === 'secondary' && ageAtRetirement < 18) {
+                    remainingEducationCosts += (educationCosts / dependents.length) * 0.7;
+                } else if ((dep.educationType === 'university' || dep.educationType === 'tafe') && ageAtRetirement < parseInt(dep.supportUntil)) {
+                    remainingEducationCosts += (educationCosts / dependents.length) * 0.5;
+                }
+            });
+            
+            // Calculate retirement expenses
+            let retirementExpenses = baseExpenses * (retirementExpenseRate / 100);
+            retirementExpenses += remainingChildCosts;
+            retirementExpenses += remainingEducationCosts;
+            
+            // Apply inflation adjustment
+            retirementExpenses = calculateInflationAdjustedValue(retirementExpenses, yearsToRetirement, inflationRate);
+            
+            return {
+                retirementExpenses: retirementExpenses,
+                dependentsAtRetirement: dependentsAtRetirement,
+                remainingEducationCosts: remainingEducationCosts,
+                baseHouseholdExpenses: baseExpenses * (retirementExpenseRate / 100)
+            };
+        }) || { retirementExpenses: currentExpenses * 0.7, dependentsAtRetirement: [], remainingEducationCosts: 0, baseHouseholdExpenses: currentExpenses * 0.7 };
+    }
+
+    /**
+     * Calculate expense timeline with dependents
+     */
+    function calculateExpenseTimeline(currentAge, currentExpenses, dependents, educationCosts, annualChildCost) {
+        return safeCalculate(() => {
+            const timeline = [];
+            const currentYear = new Date().getFullYear();
+            
+            // Calculate base expenses without dependents
+            const baseExpenses = currentExpenses - (dependents.length * annualChildCost) - educationCosts;
+            
+            // Create events for when each dependent leaves home and finishes education
+            const dependentEvents = [];
+            
+            dependents.forEach(dep => {
+                const currentDepAge = parseInt(dep.age);
+                const supportUntilAge = parseInt(dep.supportUntil);
+                
+                // Event: Dependent leaves home (reaches supportUntil age)
+                const leavingYear = currentYear + (supportUntilAge - currentDepAge);
+                dependentEvents.push({
+                    year: leavingYear,
+                    type: 'leaving',
+                    name: dep.name,
+                    costReduction: annualChildCost,
+                    description: `${dep.name} leaves home`
+                });
+                
+                // Event: Education ends (depends on education type)
+                let educationEndAge;
+                switch(dep.educationType) {
+                    case 'secondary':
+                        educationEndAge = 18;
+                        break;
+                    case 'university':
+                        educationEndAge = 22;
+                        break;
+                    case 'tafe':
+                        educationEndAge = 20;
+                        break;
+                    case 'none':
+                    default:
+                        educationEndAge = 18;
+                        break;
+                }
+                
+                const educationEndYear = currentYear + (educationEndAge - currentDepAge);
+                if (educationEndYear !== leavingYear) {
+                    dependentEvents.push({
+                        year: educationEndYear,
+                        type: 'education_end',
+                        name: dep.name,
+                        costReduction: educationCosts / dependents.length,
+                        description: `${dep.name} finishes education`
+                    });
+                }
+            });
+            
+            // Sort events by year
+            dependentEvents.sort((a, b) => a.year - b.year);
+            
+            // Calculate expenses for each year
+            let currentAnnualExpense = currentExpenses;
+            let year = currentYear;
+            const maxYears = 30;
+            
+            for (let i = 0; i < maxYears; i++) {
+                const eventsThisYear = dependentEvents.filter(event => event.year === year);
+                
+                // Apply cost reductions for events this year
+                eventsThisYear.forEach(event => {
+                    currentAnnualExpense -= event.costReduction;
+                });
+                
+                // Only add to timeline if there are events or it's the current year
+                if (eventsThisYear.length > 0 || year === currentYear) {
+                    timeline.push({
+                        year: year,
+                        age: currentAge + (year - currentYear),
+                        annualExpense: Math.max(baseExpenses, currentAnnualExpense),
+                        events: [...eventsThisYear] // Copy the array
+                    });
+                }
+                
+                year++;
+                
+                // Stop if we've projected beyond when all dependents are gone
+                if (currentAnnualExpense <= baseExpenses && year > currentYear + 5) {
+                    // Add final state
+                    timeline.push({
+                        year: year,
+                        age: currentAge + (year - currentYear),
+                        annualExpense: baseExpenses,
+                        events: []
+                    });
+                    break;
+                }
+            }
+            
+            return timeline;
+        }) || [];
     }
 
     // Dependent management functions
@@ -1784,118 +2067,29 @@
         }
     }
 
-    
-function calculateExpenseTimeline(currentAge, currentExpenses, dependents, educationCosts, annualChildCost) {
-    const timeline = [];
-    const currentYear = new Date().getFullYear();
-    
-    // Calculate base expenses without dependents
-    const baseExpenses = currentExpenses - (dependents.length * annualChildCost) - educationCosts;
-    
-    // Create events for when each dependent leaves home and finishes education
-    const dependentEvents = [];
-    
-    dependents.forEach(dep => {
-        // Event: Dependent leaves home (reaches supportUntil age)
-        const leavingYear = currentYear + (dep.supportUntil - dep.age);
-        dependentEvents.push({
-            year: leavingYear,
-            type: 'leaving',
-            name: dep.name,
-            costReduction: annualChildCost,
-            description: `${dep.name} leaves home`
-        });
+    function updateScenarioContext(scenarioAge, yearsToRetirement, expenseData) {
+        let contextText = `At age ${scenarioAge}, `;
         
-        // Event: Education ends (depends on education type)
-        let educationEndAge;
-        switch(dep.educationType) {
-            case 'secondary':
-                educationEndAge = 18;
-                break;
-            case 'university':
-                educationEndAge = 22;
-                break;
-            case 'tafe':
-                educationEndAge = 20;
-                break;
-            case 'none':
-            default:
-                educationEndAge = 18;
-                break;
-        }
-        
-        const educationEndYear = currentYear + (educationEndAge - dep.age);
-        if (educationEndYear !== leavingYear) { // Only add if different from leaving year
-            dependentEvents.push({
-                year: educationEndYear,
-                type: 'education_end',
-                name: dep.name,
-                costReduction: educationCosts / dependents.length,
-                description: `${dep.name} finishes education`
+        if (expenseData.dependentsAtRetirement.length > 0) {
+            const dependentAges = expenseData.dependentsAtRetirement.map(dep => {
+                const ageAtRetirement = parseInt(dep.age) + parseInt(yearsToRetirement);
+                return `${dep.name} (age ${ageAtRetirement})`;
             });
-        }
-    });
-    
-    // Sort events by year
-    dependentEvents.sort((a, b) => a.year - b.year);
-    
-    // Calculate expenses for each year
-    let currentAnnualExpense = currentExpenses;
-    let year = currentYear;
-    const maxYears = 30;
-    
-    for (let i = 0; i < maxYears; i++) {
-        const eventsThisYear = dependentEvents.filter(event => event.year === year);
-        
-        // Apply cost reductions for events this year
-        eventsThisYear.forEach(event => {
-            currentAnnualExpense -= event.costReduction;
-        });
-        
-        // Only add to timeline if there are events or it's the current year
-        if (eventsThisYear.length > 0 || year === currentYear) {
-            timeline.push({
-                year: year,
-                age: currentAge + (year - currentYear),
-                annualExpense: currentAnnualExpense,
-                events: eventsThisYear
-            });
+            
+            contextText += `you'll still have ${expenseData.dependentsAtRetirement.length} dependent${expenseData.dependentsAtRetirement.length > 1 ? 's' : ''} at home: ${dependentAges.join(', ')}. `;
+            
+            // Add education context if applicable
+            if (expenseData.remainingEducationCosts > 0) {
+                contextText += `Education costs will continue for some dependents. `;
+            }
+        } else {
+            contextText += `all your dependents will have left home. Your household expenses will be significantly lower. `;
         }
         
-        year++;
-        
-        // Stop if we've projected beyond when all dependents are gone
-        if (currentAnnualExpense <= baseExpenses && year > currentYear + 5) {
-            break;
-        }
+        contextText += `Your household expenses are projected to be ${formatCurrency(expenseData.retirementExpenses)} annually.`;
+        return contextText;
     }
-    
-    return timeline;
-}
 
-
-function updateScenarioContext(scenarioAge, yearsToRetirement, expenseData) {
-    let contextText = `At age ${scenarioAge}, `;
-    
-    if (expenseData.dependentsAtRetirement.length > 0) {
-        const dependentAges = expenseData.dependentsAtRetirement.map(dep => {
-            const ageAtRetirement = parseInt(dep.age) + parseInt(yearsToRetirement);
-            return `${dep.name} (age ${ageAtRetirement})`;
-        });
-        
-        contextText += `you'll still have ${expenseData.dependentsAtRetirement.length} dependent${expenseData.dependentsAtRetirement.length > 1 ? 's' : ''} at home: ${dependentAges.join(', ')}. `;
-        
-        // Add education context if applicable
-        if (expenseData.remainingEducationCosts > 0) {
-            contextText += `Education costs will continue for some dependents. `;
-        }
-    } else {
-        contextText += `all your dependents will have left home. Your household expenses will be significantly lower. `;
-    }
-    
-    contextText += `Your household expenses are projected to be ${formatCurrency(expenseData.retirementExpenses)} annually.`;
-    return contextText;
-}
     function updateExpenseTimelinePreview() {
         const container = document.getElementById('expense-timeline-preview');
         
@@ -1920,7 +2114,7 @@ function updateScenarioContext(scenarioAge, yearsToRetirement, expenseData) {
             
             item.events.forEach(event => {
                 html += `<div class="timeline-item" style="padding-left: 20px; font-size: 0.9rem;">
-                    <div class="timeline-event">${event.name} ends</div>
+                    <div class="timeline-event">${event.description}</div>
                     <div class="timeline-change negative-change">-${formatCurrency(event.costReduction)}</div>
                 </div>`;
             });
@@ -1942,54 +2136,6 @@ function updateScenarioContext(scenarioAge, yearsToRetirement, expenseData) {
         html += '</div>';
         container.innerHTML = html;
     }
-
-    
-function calculateRetirementExpensesWithDependents(scenarioAge, currentAge, currentExpenses, retirementExpenseRate, 
-                                                 dependents, educationCosts, annualChildCost, inflationRate) {
-    const yearsToRetirement = scenarioAge - currentAge;
-    const currentYear = new Date().getFullYear();
-    const retirementYear = currentYear + yearsToRetirement;
-    
-    const baseHouseholdExpenses = currentExpenses - (dependents.length * annualChildCost) - educationCosts;
-    
-    // FIXED: Properly calculate which dependents will still be at home at retirement
-const dependentsAtRetirement = dependents.filter(dep => {
-    const ageAtRetirement = parseInt(dep.age) + parseInt(yearsToRetirement);
-    const supportUntilAge = parseInt(dep.supportUntil);
-    // A dependent is considered "at home" if they haven't reached their supportUntil age
-    return ageAtRetirement < supportUntilAge;
-});
-    
-// FIXED: Calculate remaining education costs more accurately
-let remainingEducationCosts = 0;
-dependents.forEach(dep => {
-    const ageAtRetirement = parseInt(dep.age) + parseInt(yearsToRetirement);
-    const supportUntilAge = parseInt(dep.supportUntil);
-    
-    // Only count education costs if the dependent is still in education at retirement
-    if (ageAtRetirement < supportUntilAge) {
-        if (dep.educationType === 'secondary' && ageAtRetirement < 18) {
-            // Full secondary education costs
-            remainingEducationCosts += educationCosts / dependents.length;
-        } else if ((dep.educationType === 'university' || dep.educationType === 'tafe') && ageAtRetirement < supportUntilAge) {
-            // Tertiary education costs (typically lower than full household costs)
-            remainingEducationCosts += (educationCosts / dependents.length) * 0.7;
-        }
-    }
-});
-    
-    let retirementExpenses = baseHouseholdExpenses * (retirementExpenseRate / 100);
-    retirementExpenses += (dependentsAtRetirement.length * annualChildCost);
-    retirementExpenses += remainingEducationCosts;
-    
-    retirementExpenses = calculateInflationAdjustedValue(retirementExpenses, yearsToRetirement, inflationRate);
-    
-    return {
-        retirementExpenses: retirementExpenses,
-        dependentsAtRetirement: dependentsAtRetirement,
-        remainingEducationCosts: remainingEducationCosts
-    };
-}
 
     // Initialize function
     function initializeApp() {
@@ -2168,7 +2314,7 @@ dependents.forEach(dep => {
                 const income = validateFinancialInput(currentIncome.value, 'income') || 0;
                 const additionalContributionValue = validateFinancialInput(additionalContribution.value, 'additional contribution') || 0;
                 
-                // FIXED: Use current super contribution rate, not 2024 rate
+                // Use current super contribution rate
                 const employerContribution = income * AUSTRALIAN_RULES.SUPER_CONTRIBUTION_RATE;
                 const totalContribution = employerContribution + additionalContributionValue;
                 
@@ -2196,7 +2342,7 @@ dependents.forEach(dep => {
                     projectedSuper = projectedSuper * (1 + returnRate) + totalContribution;
                     years++;
                     
-                    // NEW: Use inflation adjustment function
+                    // Use inflation adjustment function
                     const inflationAdjustedRequiredSavings = calculateInflationAdjustedValue(requiredSavings, years, inflationRate);
                     
                     if (projectedSuper >= inflationAdjustedRequiredSavings || years >= maxYears) {
@@ -2222,7 +2368,7 @@ dependents.forEach(dep => {
                 const income = validateFinancialInput(currentIncome.value, 'income') || 0;
                 const additionalContributionValue = validateFinancialInput(additionalContribution.value, 'additional contribution') || 0;
                 
-                // FIXED: Use current super contribution rate, not 2024 rate
+                // Use current super contribution rate
                 const employerContribution = income * AUSTRALIAN_RULES.SUPER_CONTRIBUTION_RATE;
                 const totalContribution = employerContribution + additionalContributionValue;
                 
@@ -2250,7 +2396,7 @@ dependents.forEach(dep => {
                     projectedSuper = projectedSuper * (1 + returnRate) + totalContribution;
                     years++;
                     
-                    // NEW: Use inflation adjustment function
+                    // Use inflation adjustment function
                     const inflationAdjustedRequiredSavings = calculateInflationAdjustedValue(requiredBasicSavings, years, inflationRate);
                     
                     if (projectedSuper >= inflationAdjustedRequiredSavings || years >= maxYears) {
@@ -2377,25 +2523,6 @@ dependents.forEach(dep => {
             }
         });
         
-        // Tab functionality
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const tabId = tab.getAttribute('data-tab');
-                
-                // Update active tab
-                tabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                
-                // Show active tab content
-                tabContents.forEach(content => {
-                    content.classList.remove('active');
-                    if (content.id === `${tabId}-tab`) {
-                        content.classList.add('active');
-                    }
-                });
-            });
-        });
-        
         // Scenario tab functionality
         scenarioTabs.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -2415,23 +2542,6 @@ dependents.forEach(dep => {
             });
         });
 
-        // Scenario tab functionality
-        scenarioTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const scenarioId = tab.getAttribute('data-scenario');
-                
-                scenarioTabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                
-                scenarioContents.forEach(content => {
-                    content.classList.remove('active');
-                    if (content.id === `scenario-${scenarioId}`) {
-                        content.classList.add('active');
-                    }
-                });
-            });
-        });
-        
         // Partner checkbox toggle
         hasPartnerCheckbox.addEventListener('change', function() {
             if (this.checked) {
@@ -2709,7 +2819,7 @@ dependents.forEach(dep => {
                 
                 item.events.forEach(event => {
                     html += `<div class="timeline-item" style="padding-left: 20px; font-size: 0.9rem;">
-                        <div class="timeline-event">${event.name} ends</div>
+                        <div class="timeline-event">${event.description}</div>
                         <div class="timeline-change negative-change">-${formatCurrency(event.costReduction)}</div>
                     </div>`;
                 });
@@ -2719,7 +2829,7 @@ dependents.forEach(dep => {
             document.getElementById('family-timeline-analysis').innerHTML = html;
         }
 
-        // Fixed: Enhanced scenario calculation with dependents
+        // Enhanced scenario calculation with dependents
         function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, inflationRate, returnRate, 
                                  superBalance, contribution, currentExpenses, retirementExpenseRate, healthcare, travel, otherCosts,
                                  dependents, educationCosts, annualChildCost, partnerData, downsizingData, ttrData, 
@@ -2778,7 +2888,7 @@ dependents.forEach(dep => {
                     projectedSuper += partnerProjectedSuper;
                 }
                 
-                // Fixed: Calculate retirement expenses considering dependents
+                // Calculate retirement expenses considering dependents
                 const expenseData = calculateRetirementExpensesWithDependents(
                     scenarioAge, currentAge, currentExpenses, retirementExpenseRate, 
                     dependents, educationCosts, annualChildCost, inflationRate
@@ -2791,7 +2901,8 @@ dependents.forEach(dep => {
                     projectedSuper, 
                     retirementYears, 
                     returnRate, 
-                    inflationRate
+                    inflationRate,
+                    scenarioAge
                 );
                 
                 // Estimate Age Pension
@@ -2845,12 +2956,12 @@ dependents.forEach(dep => {
                     }
                 }
                 
-                // Fixed: Update scenario context with accurate family information
-const scenarioContextElement = document.getElementById(`scenario-${scenarioAge}-family-context`);
-if (scenarioContextElement) {
-    const contextText = updateScenarioContext(scenarioAge, yearsToRetirement, expenseData);
-    scenarioContextElement.textContent = contextText;
-}
+                // Update scenario context with accurate family information
+                const scenarioContextElement = document.getElementById(`scenario-${scenarioAge}-family-context`);
+                if (scenarioContextElement) {
+                    const contextText = updateScenarioContext(scenarioAge, yearsToRetirement, expenseData);
+                    scenarioContextElement.textContent = contextText;
+                }
                 
                 return {
                     age: scenarioAge,
@@ -3239,7 +3350,7 @@ if (scenarioContextElement) {
                     
                     superData.push(projectedSuper);
                     
-                    const retirementIncome = calculateSustainableWithdrawal(projectedSuper, lifeExpectancy - scenarioAge, returnRate, 0.025);
+                    const retirementIncome = calculateSustainableWithdrawal(projectedSuper, lifeExpectancy - scenarioAge, returnRate, 0.025, scenarioAge);
                     incomeData.push(retirementIncome);
                 }
                 
