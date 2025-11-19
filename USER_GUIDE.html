@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Guide - Advanced Australian Retirement Financial Planner</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --accent: #e74c3c;
+            --light: #ecf0f1;
+            --dark: #34495e;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --info: #17a2b8;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: var(--dark);
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 30px 0;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .compliance-banner {
+            background: var(--warning);
+            color: white;
+            padding: 15px;
+            font-size: 0.9rem;
+            margin: 15px auto;
+            max-width: 90%;
+            border-radius: 5px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        h2 {
+            color: var(--primary);
+            margin: 25px 0 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--light);
+        }
+        
+        h3 {
+            color: var(--secondary);
+            margin: 20px 0 10px;
+        }
+        
+        p {
+            margin-bottom: 15px;
+        }
+        
+        ul, ol {
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: var(--light);
+            border-radius: 8px;
+        }
+        
+        .calculation-explanation {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid var(--secondary);
+        }
+        
+        .note {
+            background: #fff8e1;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid var(--warning);
+        }
+        
+        .important {
+            background: #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid var(--danger);
+        }
+        
+        .example {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid var(--success);
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: var(--dark);
+            opacity: 0.7;
+            font-size: 0.9rem;
+            border-top: 1px solid #ddd;
+        }
+        
+        .back-to-top {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--secondary);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+        }
+        
+        .back-to-top:hover {
+            background: #2980b9;
+            transform: translateY(-3px);
+        }
+        
+        .toc {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        
+        .toc h2 {
+            margin-top: 0;
+        }
+        
+        .toc ul {
+            columns: 2;
+        }
+        
+        .toc li {
+            margin-bottom: 10px;
+        }
+        
+        .toc a {
+            color: var(--secondary);
+            text-decoration: none;
+        }
+        
+        .toc a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .toc ul {
+                columns: 1;
+            }
+        }
+        
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .feature-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            border-left: 4px solid var(--secondary);
+        }
+        
+        .feature-card h3 {
+            margin-top: 0;
+            color: var(--primary);
+        }
+        
+        .code-block {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-family: monospace;
+            overflow-x: auto;
+        }
+        
+        .step-number {
+            display: inline-block;
+            background: var(--secondary);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            margin-right: 10px;
+        }
+        
+        .step {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>User Guide</h1>
+            <p class="subtitle">Advanced Australian Retirement Financial Planner</p>
+            
+            <div class="compliance-banner">
+                <i class="fas fa-exclamation-triangle"></i> 
+                <strong>Important:</strong> This tool provides general information only and does not constitute financial advice. 
+                You should consult with a qualified financial advisor before making any financial decisions. 
+                Calculations are based on current Australian rules as of 2024 and are subject to change.
+            </div>
+        </header>
+        
+        <div class="content">
+            <div class="toc">
+                <h2>Table of Contents</h2>
+                <ul>
+                    <li><a href="#introduction">Introduction</a></li>
+                    <li><a href="#getting-started">Getting Started</a></li>
+                    <li><a href="#input-tabs">Input Tabs Explained</a>
+                        <ul>
+                            <li><a href="#basic-tab">Basic Information</a></li>
+                            <li><a href="#partner-tab">Partner Information</a></li>
+                            <li><a href="#super-tab">Super & Assets</a></li>
+                            <li><a href="#strategies-tab">Retirement Strategies</a></li>
+                            <li><a href="#income-tab">Income & Expenses</a></li>
+                        </ul>
+                    </li>
+                    <li><a href="#calculation-methodology">Calculation Methodology</a></li>
+                    <li><a href="#results-interpretation">Understanding Your Results</a></li>
+                    <li><a href="#features">Key Features</a></li>
+                    <li><a href="#tips">Tips for Effective Use</a></li>
+                    <li><a href="#faq">Frequently Asked Questions</a></li>
+                </ul>
+            </div>
+            
+            <section id="introduction">
+                <h2>Introduction</h2>
+                <p>Welcome to the Advanced Australian Retirement Financial Planner, a comprehensive tool designed to help you plan for a financially secure retirement. This application incorporates Australian-specific retirement rules, tax considerations, and strategic options to provide personalized retirement projections.</p>
+                
+                <p>The planner considers multiple factors including superannuation growth, Transition to Retirement (TTR) strategies, property downsizing, Age Pension eligibility, tax implications, and various retirement scenarios to give you a holistic view of your retirement options.</p>
+                
+                <div class="note">
+                    <p><strong>Note:</strong> All calculations are based on current Australian regulations as of 2024. Superannuation, tax, and pension rules may change over time, so it's important to review your retirement plan regularly.</p>
+                </div>
+            </section>
+            
+            <section id="getting-started">
+                <h2>Getting Started</h2>
+                
+                <div class="step">
+                    <h3><span class="step-number">1</span> Enable Auto-Calculation (Optional)</h3>
+                    <p>Toggle the "Enable Auto-Calculation" switch at the top of the input section if you want the results to update automatically as you change values. This is helpful for exploring different scenarios quickly.</p>
+                </div>
+                
+                <div class="step">
+                    <h3><span class="step-number">2</span> Navigate Through Input Tabs</h3>
+                    <p>Use the five input tabs to enter your financial information:</p>
+                    <ul>
+                        <li><strong>Basic Info:</strong> Your age, retirement goals, and economic assumptions</li>
+                        <li><strong>Partner:</strong> Information about your partner/spouse (if applicable)</li>
+                        <li><strong>Super & Assets:</strong> Your superannuation, property, and other assets</li>
+                        <li><strong>Strategies:</strong> Retirement strategies like TTR and investment approach</li>
+                        <li><strong>Income & Expenses:</strong> Your current and expected retirement spending</li>
+                    </ul>
+                </div>
+                
+                <div class="step">
+                    <h3><span class="step-number">3</span> Use the Auto Retirement Age Calculator</h3>
+                    <p>In the Basic Info tab, click "Calculate Retirement Age Options" to get personalized recommendations for your optimal and minimum viable retirement ages based on your financial situation.</p>
+                </div>
+                
+                <div class="step">
+                    <h3><span class="step-number">4</span> Review Your Results</h3>
+                    <p>After entering your information, click "Calculate Retirement Plan" to see your personalized retirement projections, strategy analyses, and recommendations.</p>
+                </div>
+                
+                <div class="step">
+                    <h3><span class="step-number">5</span> Save Your Data</h3>
+                    <p>Use the "Save Data Locally" button to store your information in your browser for future sessions. You can also export your results or print your retirement plan.</p>
+                </div>
+            </section>
+            
+            <section id="input-tabs">
+                <h2>Input Tabs Explained</h2>
+                
+                <div id="basic-tab" class="section">
+                    <h3>Basic Information Tab</h3>
+                    <p>This tab collects fundamental information about you and your retirement assumptions:</p>
+                    
+                    <ul>
+                        <li><strong>Your Current Age:</strong> Your current age in years (must be between 18-100)</li>
+                        <li><strong>Auto Retirement Age Calculation:</strong> Click this button to calculate optimal and minimum retirement ages based on your financial inputs</li>
+                        <li><strong>Your Desired Retirement Age:</strong> The age at which you plan to retire</li>
+                        <li><strong>Life Expectancy:</strong> Select from average (85), above average (90), longevity (95), or exceptional longevity (100)</li>
+                        <li><strong>Expected Annual Inflation:</strong> The assumed annual inflation rate (default is 2.5%, the RBA target)</li>
+                        <li><strong>Expected Annual Investment Return:</strong> The assumed annual return on your investments (default is 7%, historical average for balanced super funds)</li>
+                    </ul>
+                    
+                    <div class="calculation-explanation">
+                        <h4>How Auto Retirement Age Calculation Works</h4>
+                        <p>The tool calculates two retirement age options:</p>
+                        <ol>
+                            <li><strong>Optimal Retirement Age:</strong> Based on achieving your desired retirement lifestyle without income shortfalls</li>
+                            <li><strong>Minimum Viable Retirement Age:</strong> The earliest age you could retire while covering basic expenses</li>
+                        </ol>
+                        <p>The calculation considers your current savings, contributions, investment returns, inflation, and retirement expenses to determine when you'll have sufficient funds to support your retirement.</p>
+                    </div>
+                </div>
+                
+                <div id="partner-tab" class="section">
+                    <h3>Partner Information Tab</h3>
+                    <p>If you have a partner or spouse, use this tab to include their information in your retirement planning:</p>
+                    
+                    <ul>
+                        <li><strong>I have a partner/spouse:</strong> Check this box to enable partner inputs</li>
+                        <li><strong>Partner's Age:</strong> Your partner's current age</li>
+                        <li><strong>Partner's Retirement Age:</strong> When your partner plans to retire</li>
+                        <li><strong>Partner continues working after I retire:</strong> Check if your partner will keep working after you retire</li>
+                        <li><strong>Partner's Annual Income:</strong> Your partner's current annual income</li>
+                        <li><strong>Partner's Super Balance:</strong> Your partner's current superannuation balance</li>
+                        <li><strong>Partner's Annual Super Contribution:</strong> Your partner's annual super contributions (including employer contributions)</li>
+                    </ul>
+                    
+                    <div class="note">
+                        <p><strong>Note:</strong> Including partner information is important for accurate Age Pension assessments and overall household retirement planning.</p>
+                    </div>
+                </div>
+                
+                <div id="super-tab" class="section">
+                    <h3>Super & Assets Tab</h3>
+                    <p>This tab collects detailed information about your superannuation, property, and other assets:</p>
+                    
+                    <h4>Superannuation Information</h4>
+                    <ul>
+                        <li><strong>Your Current Annual Income:</strong> Your pre-tax annual income</li>
+                        <li><strong>Your Current Super Balance:</strong> Your current superannuation balance</li>
+                        <li><strong>Additional Salary Sacrifice:</strong> Any additional voluntary contributions you make to super</li>
+                        <li><strong>I earn over $250,000 annually:</strong> Check if you're subject to Division 293 tax</li>
+                    </ul>
+                    
+                    <div class="calculation-explanation">
+                        <h4>How Super Projections Are Calculated</h4>
+                        <p>Your future super balance is calculated using compound growth:</p>
+                        <p><code>Future Balance = Current Balance × (1 + Investment Return)^Years + Annual Contribution × [(1 + Investment Return)^Years - 1] / Investment Return</code></p>
+                        <p>The calculation accounts for employer contributions (currently 11%, increasing to 11.5% from 1 July 2024), any additional salary sacrifice, and your selected investment return rate.</p>
+                    </div>
+                    
+                    <h4>Self-Managed Super Fund (SMSF)</h4>
+                    <ul>
+                        <li><strong>I have a Self-Managed Super Fund:</strong> Check if you have an SMSF</li>
+                        <li><strong>Annual SMSF Administration Costs:</strong> The annual cost of running your SMSF</li>
+                    </ul>
+                    
+                    <h4>Property Assets</h4>
+                    <ul>
+                        <li><strong>Primary Residence Value:</strong> The current market value of your home</li>
+                        <li><strong>Primary Residence Mortgage:</strong> The remaining mortgage on your home</li>
+                        <li><strong>Considering downsizing primary residence:</strong> Check if you plan to downsize your home in retirement</li>
+                        <li><strong>Expected Downsized Property Value:</strong> The value of the smaller home you plan to move to</li>
+                        <li><strong>Planned Downsizing Age:</strong> The age at which you plan to downsize</li>
+                        <li><strong>Investment Properties Value:</strong> Total value of any investment properties</li>
+                        <li><strong>Investment Properties Debt:</strong> Total debt on investment properties</li>
+                        <li><strong>Other Assets Value:</strong> Value of other assets like shares, savings, etc.</li>
+                    </ul>
+                    
+                    <h4>Other Debts</h4>
+                    <ul>
+                        <li><strong>Personal Loans/Credit Cards:</strong> Total balance of personal debts</li>
+                    </ul>
+                </div>
+                
+                <div id="strategies-tab" class="section">
+                    <h3>Strategies Tab</h3>
+                    <p>This tab allows you to explore specific retirement strategies and insurance considerations:</p>
+                    
+                    <h4>Transition to Retirement (TTR) Strategy</h4>
+                    <ul>
+                        <li><strong>Consider Transition to Retirement strategy:</strong> Check to enable TTR planning</li>
+                        <li><strong>Start TTR at Age:</strong> When you plan to start a TTR strategy (must be at least 55, the preservation age)</li>
+                        <li><strong>Desired TTR Income:</strong> The percentage of your salary you want to receive during TTR</li>
+                        <li><strong>Additional Salary Sacrifice during TTR:</strong> The percentage of salary you'll sacrifice to super during TTR</li>
+                    </ul>
+                    
+                    <div class="calculation-explanation">
+                        <h4>How TTR Calculations Work</h4>
+                        <p>During the TTR phase:</p>
+                        <ol>
+                            <li>You withdraw a portion of your super as an income stream</li>
+                            <li>You may salary sacrifice more of your salary to super (taking advantage of tax benefits)</li>
+                            <li>Your super continues to grow on the remaining balance</li>
+                        </ol>
+                        <p>The tool calculates the tax benefits of additional salary sacrifice and projects how TTR affects your final retirement balance.</p>
+                    </div>
+                    
+                    <h4>Investment Strategy</h4>
+                    <ul>
+                        <li><strong>Your Risk Profile:</strong> Select from Conservative, Moderate, Balanced, Growth, or High Growth</li>
+                        <li><strong>Current Super Asset Allocation:</strong> Select the allocation that matches your current super investment option</li>
+                    </ul>
+                    
+                    <h4>Insurance Considerations</h4>
+                    <ul>
+                        <li><strong>I have income protection insurance</strong></li>
+                        <li><strong>I have life insurance</strong></li>
+                        <li><strong>I have total and permanent disability (TPD) insurance</strong></li>
+                    </ul>
+                </div>
+                
+                <div id="income-tab" class="section">
+                    <h3>Income & Expenses Tab</h3>
+                    <p>This tab collects information about your current and expected retirement spending:</p>
+                    
+                    <ul>
+                        <li><strong>Current Annual Expenses:</strong> Your current annual living expenses</li>
+                        <li><strong>Expected Retirement Expenses:</strong> The percentage of your current expenses you expect to need in retirement (typically 70-80%)</li>
+                        <li><strong>Expected Annual Healthcare Costs in Retirement:</strong> Estimated out-of-pocket healthcare expenses</li>
+                        <li><strong>Annual Travel Budget in Retirement:</strong> Your planned travel budget</li>
+                        <li><strong>Other Expected Retirement Costs:</strong> Any additional expected costs in retirement</li>
+                    </ul>
+                    
+                    <div class="calculation-explanation">
+                        <h4>How Retirement Income Needs Are Calculated</h4>
+                        <p>Your total retirement expenses are calculated as:</p>
+                        <p><code>Retirement Expenses = (Current Expenses × Retirement Expense Percentage) + Healthcare Costs + Travel Budget + Other Costs</code></p>
+                        <p>This amount is then adjusted for inflation between now and your retirement date to determine your future retirement income needs.</p>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="calculation-methodology">
+                <h2>Calculation Methodology</h2>
+                
+                <p>The Advanced Australian Retirement Financial Planner uses sophisticated financial models to project your retirement outcomes. Here's an overview of the key calculations:</p>
+                
+                <h3>Superannuation Projection</h3>
+                <div class="calculation-explanation">
+                    <p>Your super balance is projected using compound growth formula:</p>
+                    <p><code>Future Balance = Current Balance × (1 + r)^n + C × [(1 + r)^n - 1] / r</code></p>
+                    <p>Where:</p>
+                    <ul>
+                        <li><strong>r</strong> = annual investment return rate</li>
+                        <li><strong>n</strong> = years until retirement</li>
+                        <li><strong>C</strong> = annual contributions (employer + salary sacrifice)</li>
+                    </ul>
+                </div>
+                
+                <h3>Retirement Income Calculation</h3>
+                <div class="calculation-explanation">
+                    <p>Your sustainable retirement income is calculated using a dynamic withdrawal approach:</p>
+                    <p><code>Annual Income = Super Balance × Withdrawal Rate</code></p>
+                    <p>The withdrawal rate is dynamically adjusted based on:</p>
+                    <ul>
+                        <li>Your expected investment returns</li>
+                        <li>Inflation expectations</li>
+                        <li>Your retirement time horizon</li>
+                    </ul>
+                    <p>This approach is more sophisticated than the simple "4% rule" and provides a more personalized estimate.</p>
+                </div>
+                
+                <h3>Age Pension Eligibility</h3>
+                <div class="calculation-explanation">
+                    <p>Your Age Pension eligibility is determined through both assets and income tests:</p>
+                    
+                    <h4>Assets Test (2024 thresholds)</h4>
+                    <table>
+                        <tr>
+                            <th>Status</th>
+                            <th>Full Pension Assets</th>
+                            <th>Partial Pension Assets</th>
+                        </tr>
+                        <tr>
+                            <td>Single</td>
+                            <td>Up to $301,750</td>
+                            <td>Up to $935,000</td>
+                        </tr>
+                        <tr>
+                            <td>Couple</td>
+                            <td>Up to $451,500</td>
+                            <td>Up to $1,402,000</td>
+                        </tr>
+                    </table>
+                    
+                    <h4>Income Test (2024 thresholds)</h4>
+                    <table>
+                        <tr>
+                            <th>Status</th>
+                            <th>Full Pension Income</th>
+                            <th>Partial Pension Income</th>
+                        </tr>
+                        <tr>
+                            <td>Single</td>
+                            <td>Up to $204/fortnight</td>
+                            <td>Up to $2,368/fortnight</td>
+                        </tr>
+                        <tr>
+                            <td>Couple</td>
+                            <td>Up to $360/fortnight</td>
+                            <td>Up to $3,640/fortnight</td>
+                        </tr>
+                    </table>
+                    
+                    <p><strong>Note:</strong> Your primary residence is exempt from the assets test.</p>
+                </div>
+                
+                <h3>Tax Considerations</h3>
+                <div class="calculation-explanation">
+                    <p>The tool considers several Australian tax rules:</p>
+                    <ul>
+                        <li><strong>Super Contributions Tax:</strong> 15% on concessional contributions</li>
+                        <li><strong>Division 293 Tax:</strong> Additional 15% on contributions for high-income earners (>$250,000)</li>
+                        <li><strong>Super Withdrawal Tax:</strong> Tax-free from age 60 for most people</li>
+                        <li><strong>Transfer Balance Cap:</strong> $1.9 million limit on super in retirement phase</li>
+                    </ul>
+                </div>
+                
+                <h3>Inflation Adjustment</h3>
+                <div class="calculation-explanation">
+                    <p>All future values are adjusted for inflation using:</p>
+                    <p><code>Future Value = Current Value × (1 + Inflation Rate)^Years</code></p>
+                    <p>This ensures that your retirement income needs and projections are expressed in future dollars.</p>
+                </div>
+            </section>
+            
+            <section id="results-interpretation">
+                <h2>Understanding Your Results</h2>
+                
+                <p>After calculating your retirement plan, you'll see several sections of results:</p>
+                
+                <h3>Current Net Worth Summary</h3>
+                <p>This section provides a snapshot of your current financial position, showing your total assets, liabilities, and net worth.</p>
+                
+                <h3>Retirement Scenarios</h3>
+                <p>This section compares five different retirement ages (55, 60, 65, 67, and 70) and shows:</p>
+                <ul>
+                    <li><strong>Years to Retirement:</strong> How many years until you reach that age</li>
+                    <li><strong>Projected Super:</strong> Your estimated super balance at that age</li>
+                    <li><strong>Annual Retirement Income:</strong> Your sustainable annual income from that age</li>
+                    <li><strong>Retirement Shortfall/Surplus:</strong> The difference between your projected income and expenses</li>
+                </ul>
+                
+                <div class="note">
+                    <p><strong>Color Coding:</strong> Shortfalls are shown in <span style="color: var(--danger);">red</span> and surpluses in <span style="color: var(--success);">green</span> to help you quickly identify potential issues.</p>
+                </div>
+                
+                <h3>Strategy Analyses</h3>
+                <p>These sections provide detailed analysis of specific strategies:</p>
+                <ul>
+                    <li><strong>Transition to Retirement Analysis:</strong> Shows the potential benefits of a TTR strategy</li>
+                    <li><strong>Downsizing Strategy Analysis:</strong> Evaluates the financial impact of downsizing your home</li>
+                    <li><strong>Age Pension Eligibility:</strong> Assesses your likely Age Pension entitlements</li>
+                    <li><strong>Tax Considerations:</strong> Highlights important tax implications in retirement</li>
+                    <li><strong>Recommended Asset Allocation:</strong> Suggests an appropriate investment mix based on your age and risk profile</li>
+                </ul>
+                
+                <h3>Charts</h3>
+                <p>Visual representations of your retirement projections:</p>
+                <ul>
+                    <li><strong>Retirement Projections Chart:</strong> Compares super balances and retirement incomes across different retirement ages</li>
+                    <li><strong>Asset Allocation Chart:</strong> Shows the recommended mix of growth and defensive assets</li>
+                </ul>
+                
+                <h3>Strategic Recommendations</h3>
+                <p>Personalized suggestions to improve your retirement outcomes, such as:</p>
+                <ul>
+                    <li>Increasing super contributions</li>
+                    <li>Considering specific strategies like TTR or downsizing</li>
+                    <li>Reviewing insurance coverage</li>
+                    <li>Adjusting investment allocations</li>
+                </ul>
+            </section>
+            
+            <section id="features">
+                <h2>Key Features</h2>
+                
+                <div class="feature-list">
+                    <div class="feature-card">
+                        <h3>Comprehensive Australian Focus</h3>
+                        <p>Specifically designed for Australian retirement rules, including superannuation, Age Pension, and tax considerations.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <h3>Multiple Retirement Scenarios</h3>
+                        <p>Compare outcomes for retiring at different ages to find your optimal retirement timing.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <h3>Strategy Analysis</h3>
+                        <p>Evaluate Transition to Retirement, downsizing, and other strategies to optimize your retirement.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <h3>Partner Inclusion</h3>
+                        <p>Include your partner's information for accurate household retirement planning.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <h3>Auto-Calculation</h3>
+                        <p>Option to automatically update results as you change inputs for real-time scenario testing.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <h3>Data Persistence</h3>
+                        <p>Save your data locally and reload it in future sessions.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <h3>Retirement Age Calculator</h3>
+                        <p>Get personalized recommendations for your optimal and minimum retirement ages.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <h3>Visual Reporting</h3>
+                        <p>Charts and graphs to help visualize your retirement projections.</p>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="tips">
+                <h2>Tips for Effective Use</h2>
+                
+                <div class="important">
+                    <h3>Be Realistic with Your Assumptions</h3>
+                    <p>Use reasonable estimates for investment returns and inflation. Historical averages for balanced super funds are 6-8% returns and 2-3% inflation.</p>
+                </div>
+                
+                <div class="note">
+                    <h3>Update Regularly</h3>
+                    <p>Review and update your retirement plan annually or when your circumstances change significantly (job change, inheritance, etc.).</p>
+                </div>
+                
+                <div class="note">
+                    <h3>Test Different Scenarios</h3>
+                    <p>Use the auto-calculation feature to quickly test how changes to your inputs affect your retirement outcomes.</p>
+                </div>
+                
+                <div class="note">
+                    <h3>Consider Conservative Estimates</h3>
+                    <p>When in doubt, use slightly conservative estimates for investment returns and slightly higher estimates for expenses to build in a safety margin.</p>
+                </div>
+                
+                <div class="note">
+                    <h3>Save Your Work</h3>
+                    <p>Always save your data after entering information to avoid having to re-enter it in future sessions.</p>
+                </div>
+                
+                <div class="important">
+                    <h3>Seek Professional Advice</h3>
+                    <p>This tool provides projections based on your inputs, but it's not a substitute for personalized financial advice from a qualified professional.</p>
+                </div>
+            </section>
+            
+            <section id="faq">
+                <h2>Frequently Asked Questions</h2>
+                
+                <h3>How accurate are the projections?</h3>
+                <p>The projections are based on the inputs you provide and current Australian rules. They represent a reasonable estimate of potential outcomes but can't predict future market performance or changes to legislation.</p>
+                
+                <h3>What is the preservation age?</h3>
+                <p>Preservation age is the minimum age at which you can access your super. It ranges from 55 to 60 depending on when you were born. For those born after 1964, the preservation age is 60.</p>
+                
+                <h3>What is the Transfer Balance Cap?</h3>
+                <p>The Transfer Balance Cap is the maximum amount you can transfer into a tax-free retirement phase super account. As of 2024, this cap is $1.9 million.</p>
+                
+                <h3>What is Division 293 tax?</h3>
+                <p>Division 293 tax is an additional 15% tax on super contributions for high-income earners (those with income + contributions exceeding $250,000). This tax is paid separately from your super balance.</p>
+                
+                <h3>How is the sustainable withdrawal rate calculated?</h3>
+                <p>The tool uses a dynamic withdrawal approach that considers your expected investment returns, inflation, and retirement time horizon, rather than a fixed percentage like the 4% rule.</p>
+                
+                <h3>Why does my primary residence value not affect Age Pension eligibility?</h3>
+                <p>Your primary residence is exempt from the Age Pension assets test, though it may be considered if you decide to downsize and have excess proceeds.</p>
+                
+                <h3>Can I include non-super assets in my retirement income?</h3>
+                <p>Yes, through the "Other Assets" field. The tool assumes these assets can be drawn down in retirement alongside your super.</p>
+                
+                <h3>What happens if I change my inputs?</h3>
+                <p>If auto-calculation is enabled, results update automatically. Otherwise, click "Calculate Retirement Plan" to see updated projections.</p>
+            </section>
+        </div>
+        
+        <div class="footer">
+            <p><strong>Disclaimer:</strong> This retirement planner is for informational purposes only and does not constitute financial advice. 
+            The calculations are based on current Australian regulations as of 2024 and are subject to change. 
+            You should consult with a qualified financial advisor before making any financial decisions.</p>
+            <p>All data is stored locally on your device and is not transmitted to any server.</p>
+            <p>Australian Superannuation and Age Pension rules are subject to change. Verify current regulations with the ATO and Services Australia.</p>
+        </div>
+    </div>
+    
+    <a href="#" class="back-to-top">↑</a>
+
+    <script>
+        // Back to top functionality
+        document.querySelector('.back-to-top').addEventListener('click', function(e) {
+            e.preventDefault();
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        });
+        
+        // Table of contents highlighting
+        window.addEventListener('scroll', function() {
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('.toc a');
+            
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (pageYOffset >= sectionTop - 100) {
+                    current = section.getAttribute('id');
+                }
+            });
+            
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
