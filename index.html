@@ -1872,32 +1872,62 @@ function calculateRetirementExpensesWithDependents(scenarioAge, currentAge, curr
 }
 
 /**
- * Calculate expense timeline with dependents
+ * Calculate expense timeline with dependents - FIXED VERSION
  */
 function calculateExpenseTimeline(currentAge, currentExpenses, dependents, educationCosts, annualChildCost) {
     return safeCalculate(() => {
+        console.log('calculateExpenseTimeline called with:', {
+            currentAge,
+            currentExpenses,
+            dependentsCount: dependents.length,
+            educationCosts,
+            annualChildCost
+        });
+        
         const timeline = [];
         const currentYear = new Date().getFullYear();
         
+        // Validate inputs
+        if (!dependents || dependents.length === 0) {
+            console.log('No dependents, returning empty timeline');
+            return timeline;
+        }
+        
         // Calculate base expenses without dependents
         const baseExpenses = currentExpenses - (dependents.length * annualChildCost) - educationCosts;
+        console.log('Base expenses (without dependents):', baseExpenses);
         
         // Create events for when each dependent leaves home and finishes education
         const dependentEvents = [];
         
-        dependents.forEach(dep => {
-            const currentDepAge = parseInt(dep.age);
-            const supportUntilAge = parseInt(dep.supportUntil);
+        dependents.forEach((dep, index) => {
+            console.log(`Processing dependent ${index + 1}:`, dep);
+            
+            const currentDepAge = parseInt(dep.age) || 15;
+            const supportUntilAge = parseInt(dep.supportUntil) || 18;
+            
+            // Validate ages
+            if (isNaN(currentDepAge) || currentDepAge < 0 || currentDepAge > 30) {
+                console.warn(`Invalid dependent age: ${dep.age}, using 15`);
+                currentDepAge = 15;
+            }
+            
+            if (isNaN(supportUntilAge) || supportUntilAge < 18 || supportUntilAge > 30) {
+                console.warn(`Invalid support until age: ${dep.supportUntil}, using 18`);
+                supportUntilAge = 18;
+            }
             
             // Event: Dependent leaves home (reaches supportUntil age)
             const leavingYear = currentYear + (supportUntilAge - currentDepAge);
-            dependentEvents.push({
+            const leavingEvent = {
                 year: leavingYear,
                 type: 'leaving',
-                name: dep.name,
+                name: dep.name || `Dependent ${index + 1}`,
                 costReduction: annualChildCost,
-                description: `${dep.name} leaves home`
-            });
+                description: `${dep.name || `Dependent ${index + 1}`} leaves home`
+            };
+            console.log(`Leaving event:`, leavingEvent);
+            dependentEvents.push(leavingEvent);
             
             // Event: Education ends (depends on education type)
             let educationEndAge;
@@ -1913,63 +1943,107 @@ function calculateExpenseTimeline(currentAge, currentExpenses, dependents, educa
                     break;
                 case 'none':
                 default:
-                    educationEndAge = 18;
+                    educationEndAge = supportUntilAge; // Will finish education when they leave home
                     break;
             }
             
+            // Only add education end event if it's different from leaving event
             const educationEndYear = currentYear + (educationEndAge - currentDepAge);
             if (educationEndYear !== leavingYear) {
-                dependentEvents.push({
+                const educationCostPerChild = educationCosts / Math.max(1, dependents.length);
+                const educationEndEvent = {
                     year: educationEndYear,
                     type: 'education_end',
-                    name: dep.name,
-                    costReduction: educationCosts / dependents.length,
-                    description: `${dep.name} finishes education`
-                });
+                    name: dep.name || `Dependent ${index + 1}`,
+                    costReduction: educationCostPerChild,
+                    description: `${dep.name || `Dependent ${index + 1}`} finishes ${dep.educationType || 'education'}`
+                };
+                console.log(`Education end event:`, educationEndEvent);
+                dependentEvents.push(educationEndEvent);
             }
         });
         
         // Sort events by year
         dependentEvents.sort((a, b) => a.year - b.year);
+        console.log('Sorted events:', dependentEvents);
         
         // Calculate expenses for each year
         let currentAnnualExpense = currentExpenses;
         let year = currentYear;
         const maxYears = 30;
+        const yearsAdded = new Set(); // Track years we've added to timeline
+        
+        // Always add current year
+        timeline.push({
+            year: year,
+            age: currentAge,
+            annualExpense: currentAnnualExpense,
+            events: []
+        });
+        yearsAdded.add(year);
         
         for (let i = 0; i < maxYears; i++) {
+            year++;
+            
             const eventsThisYear = dependentEvents.filter(event => event.year === year);
             
             // Apply cost reductions for events this year
             eventsThisYear.forEach(event => {
+                console.log(`Applying event in ${year}:`, event);
                 currentAnnualExpense -= event.costReduction;
             });
             
-            // Only add to timeline if there are events or it's the current year
-            if (eventsThisYear.length > 0 || year === currentYear) {
+            // Ensure we don't go below base expenses
+            currentAnnualExpense = Math.max(baseExpenses, currentAnnualExpense);
+            
+            // Add to timeline if there are events or if it's a milestone year
+            const shouldAddToTimeline = eventsThisYear.length > 0 || 
+                                       (year - currentYear) % 5 === 0 || // Every 5 years
+                                       year === currentYear + 10 || // 10 years from now
+                                       year === currentYear + 20; // 20 years from now
+            
+            if (shouldAddToTimeline && !yearsAdded.has(year)) {
                 timeline.push({
                     year: year,
                     age: currentAge + (year - currentYear),
-                    annualExpense: Math.max(baseExpenses, currentAnnualExpense),
-                    events: [...eventsThisYear] // Copy the array
+                    annualExpense: currentAnnualExpense,
+                    events: [...eventsThisYear]
                 });
+                yearsAdded.add(year);
             }
             
-            year++;
-            
-            // Stop if we've projected beyond when all dependents are gone
-            if (currentAnnualExpense <= baseExpenses && year > currentYear + 5) {
-                // Add final state
-                timeline.push({
-                    year: year,
-                    age: currentAge + (year - currentYear),
-                    annualExpense: baseExpenses,
-                    events: []
-                });
+            // Stop if we've projected beyond when expenses stabilize at base level
+            // and we've added at least 5 data points
+            if (currentAnnualExpense <= baseExpenses && timeline.length >= 5 && year > currentYear + 10) {
+                // Add final state if not already in timeline
+                if (!yearsAdded.has(year)) {
+                    timeline.push({
+                        year: year,
+                        age: currentAge + (year - currentYear),
+                        annualExpense: baseExpenses,
+                        events: []
+                    });
+                }
+                console.log('Timeline stabilized at base expenses, stopping projection');
                 break;
             }
         }
         
+        // Make sure we have at least 3 data points
+        if (timeline.length < 3 && year < currentYear + maxYears) {
+            // Add a few more years
+            for (let i = timeline.length; i < 3 && year < currentYear + maxYears; i++) {
+                year++;
+                timeline.push({
+                    year: year,
+                    age: currentAge + (year - currentYear),
+                    annualExpense: Math.max(baseExpenses, currentAnnualExpense),
+                    events: []
+                });
+            }
+        }
+        
+        console.log('Final timeline:', timeline);
         return timeline;
     }) || [];
 }
@@ -2093,43 +2167,56 @@ function updateScenarioContext(scenarioAge, yearsToRetirement, expenseData) {
 function updateExpenseTimelinePreview() {
     const container = document.getElementById('expense-timeline-preview');
     
+    if (!container) return;
+    
     if (dependents.length === 0) {
         container.innerHTML = '<p class="text-muted">Add dependents to see how your expenses will change over time</p>';
         return;
     }
     
     const currentAge = validateFinancialInput(document.getElementById('current-age').value, 'current age');
-    const currentExpenses = validateFinancialInput(document.getElementById('current-expenses').value, 'current expenses');
-    const educationCosts = validateFinancialInput(document.getElementById('education-costs').value, 'education costs');
-    const annualChildCost = validateFinancialInput(document.getElementById('annual-child-cost').value, 'annual child cost');
+    const currentExpensesValue = validateFinancialInput(document.getElementById('current-expenses').value, 'current expenses');
+    const educationCostsValue = validateFinancialInput(document.getElementById('education-costs').value, 'education costs');
+    const annualChildCostValue = validateFinancialInput(document.getElementById('annual-child-cost').value, 'annual child cost');
     
-    const timeline = calculateExpenseTimeline(currentAge, currentExpenses, dependents, educationCosts, annualChildCost);
+    const timeline = calculateExpenseTimeline(currentAge, currentExpensesValue, dependents, educationCostsValue, annualChildCostValue);
     
-    let html = '<div class="expense-timeline">';
-    timeline.slice(0, 5).forEach(item => {
+    if (timeline.length === 0) {
+        container.innerHTML = '<p class="text-muted">Unable to calculate timeline with current data</p>';
+        return;
+    }
+    
+    let html = '<div class="expense-timeline-preview">';
+    
+    // Show first 5 years or all if less than 5
+    const displayCount = Math.min(5, timeline.length);
+    for (let i = 0; i < displayCount; i++) {
+        const item = timeline[i];
         html += `<div class="timeline-item">
             <div class="timeline-year">${item.year} (Age ${item.age})</div>
             <div class="timeline-value">${formatCurrency(item.annualExpense)}</div>
         </div>`;
         
-        item.events.forEach(event => {
-            html += `<div class="timeline-item" style="padding-left: 20px; font-size: 0.9rem;">
-                <div class="timeline-event">${event.description}</div>
-                <div class="timeline-change negative-change">-${formatCurrency(event.costReduction)}</div>
-            </div>`;
-        });
-    });
+        if (item.events && item.events.length > 0) {
+            item.events.forEach(event => {
+                html += `<div class="timeline-item" style="padding-left: 20px; font-size: 0.9rem;">
+                    <div class="timeline-event">${event.description}</div>
+                    <div class="timeline-change negative-change">-${formatCurrency(event.costReduction)}</div>
+                </div>`;
+            });
+        }
+    }
     
+    // If there are more years, show an ellipsis and the final state
     if (timeline.length > 5) {
+        const finalItem = timeline[timeline.length - 1];
         html += `<div class="timeline-item">
             <div class="timeline-year">...</div>
             <div class="timeline-value">...</div>
         </div>`;
-        
-        const finalState = timeline[timeline.length - 1];
         html += `<div class="timeline-item">
-            <div class="timeline-year">${finalState.year} (Age ${finalState.age})</div>
-            <div class="timeline-value">${formatCurrency(finalState.annualExpense)}</div>
+            <div class="timeline-year">${finalItem.year} (Age ${finalItem.age})</div>
+            <div class="timeline-value">${formatCurrency(finalItem.annualExpense)}</div>
         </div>`;
     }
     
@@ -2182,6 +2269,39 @@ function initializeApp() {
     // Dependents elements
     const addDependentBtn = document.getElementById('add-dependent');
     
+// Add debug button for testing
+const debugBtn = document.createElement('button');
+debugBtn.textContent = 'Debug Timeline';
+debugBtn.className = 'btn btn-warning';
+debugBtn.style.marginTop = '10px';
+debugBtn.onclick = function() {
+    console.log('=== DEBUG TIMELINE ===');
+    const currentAge = validateFinancialInput(document.getElementById('current-age').value, 'current age');
+    const currentExpensesValue = validateFinancialInput(document.getElementById('current-expenses').value, 'current expenses');
+    const educationCostsValue = validateFinancialInput(document.getElementById('education-costs').value, 'education costs');
+    const annualChildCostValue = validateFinancialInput(document.getElementById('annual-child-cost').value, 'annual child cost');
+    
+    console.log('Inputs:', {
+        currentAge,
+        currentExpensesValue,
+        educationCostsValue,
+        annualChildCostValue,
+        dependents: dependents
+    });
+    
+    const timeline = calculateExpenseTimeline(currentAge, currentExpensesValue, dependents, educationCostsValue, annualChildCostValue);
+    console.log('Timeline result:', timeline);
+    
+    if (timeline.length > 0) {
+        alert(`Timeline generated with ${timeline.length} entries. Check console for details.`);
+    } else {
+        alert('No timeline generated. Check console for errors.');
+    }
+};
+
+// Add the debug button to the dependents section
+document.querySelector('.dependents-section').appendChild(debugBtn);
+
     // Input fields
     const currentAge = document.getElementById('current-age');
     const retirementAge = document.getElementById('retirement-age');
@@ -2806,173 +2926,184 @@ function initializeApp() {
 
     // Family timeline analysis generation
     function generateFamilyTimelineAnalysis(currentAge, currentExpenses, dependents, educationCosts, annualChildCost) {
-        const timeline = calculateExpenseTimeline(currentAge, currentExpenses, dependents, educationCosts, annualChildCost);
+    const container = document.getElementById('family-timeline-analysis');
+    if (!container) return;
+    
+    if (dependents.length === 0) {
+        container.innerHTML = '<div class="expense-timeline"><p>No dependents added. Add dependents to see household expense projections.</p></div>';
+        return;
+    }
+    
+    const timeline = calculateExpenseTimeline(currentAge, currentExpenses, dependents, educationCosts, annualChildCost);
+    
+    if (timeline.length === 0) {
+        container.innerHTML = '<div class="expense-timeline"><p>Unable to generate expense timeline with current data.</p></div>';
+        return;
+    }
+    
+    let html = '<div class="expense-timeline">';
+    html += '<h4>Your Household Expense Projection</h4>';
+    
+    timeline.forEach(item => {
+        html += `<div class="timeline-item">
+            <div class="timeline-year">${item.year} (Age ${item.age})</div>
+            <div class="timeline-value">${formatCurrency(item.annualExpense)}</div>
+        </div>`;
         
-        let html = '<div class="expense-timeline">';
-        html += '<h4>Your Household Expense Projection</h4>';
-        
-        timeline.forEach(item => {
-            html += `<div class="timeline-item">
-                <div class="timeline-year">${item.year} (Age ${item.age})</div>
-                <div class="timeline-value">${formatCurrency(item.annualExpense)}</div>
-            </div>`;
-            
+        if (item.events && item.events.length > 0) {
             item.events.forEach(event => {
-                html += `<div class="timeline-item" style="padding-left: 20px; font-size: 0.9rem;">
+                html += `<div class="timeline-item" style="padding-left: 20px; font-size: 0.9rem; color: #666;">
                     <div class="timeline-event">${event.description}</div>
                     <div class="timeline-change negative-change">-${formatCurrency(event.costReduction)}</div>
                 </div>`;
             });
-        });
-        
-        html += '</div>';
-        document.getElementById('family-timeline-analysis').innerHTML = html;
-    }
+        }
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
 
     // Enhanced scenario calculation with dependents
-    function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, inflationRate, returnRate, 
+ /**
+ * Calculate and display scenario with enhanced family context
+ */
+function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, inflationRate, returnRate, 
                              superBalance, contribution, currentExpenses, retirementExpenseRate, healthcare, travel, otherCosts,
                              dependents, educationCosts, annualChildCost, partnerData, downsizingData, ttrData, 
                              investmentPropsValue, residenceValue, otherAssetsValue, smsfData, isHighIncomeEarner) {
-        return safeCalculate(() => {
-            const yearsToRetirement = Math.max(0, scenarioAge - currentAge);
-            const retirementYears = Math.max(0, lifeExpectancy - scenarioAge);
-            
-            // Calculate future super balance
-            let projectedSuper = projectSuperBalance(superBalance, contribution, yearsToRetirement, returnRate);
-            
-            // Apply SMSF costs if applicable
-            if (smsfData.hasSmsf) {
-                for (let i = 0; i < yearsToRetirement; i++) {
-                    projectedSuper -= smsfData.adminCosts;
-                }
+    return safeCalculate(() => {
+        const yearsToRetirement = Math.max(0, scenarioAge - currentAge);
+        const retirementYears = Math.max(0, lifeExpectancy - scenarioAge);
+        
+        // Calculate future super balance
+        let projectedSuper = projectSuperBalance(superBalance, contribution, yearsToRetirement, returnRate);
+        
+        // Apply SMSF costs if applicable
+        if (smsfData && smsfData.hasSmsf) {
+            for (let i = 0; i < yearsToRetirement; i++) {
+                projectedSuper -= smsfData.adminCosts || 0;
             }
+        }
+        
+        // Apply TTR strategy if applicable
+        if (ttrData && ttrData.planned && scenarioAge >= ttrData.startAge) {
+            const ttrYears = Math.min(yearsToRetirement, scenarioAge - ttrData.startAge);
+            const preTTRYears = yearsToRetirement - ttrYears;
             
-            // Apply TTR strategy if applicable
-            if (ttrData.planned && scenarioAge >= ttrData.startAge) {
-                const ttrYears = Math.min(yearsToRetirement, scenarioAge - ttrData.startAge);
-                const preTTRYears = yearsToRetirement - ttrYears;
+            projectedSuper = projectSuperBalance(superBalance, contribution, preTTRYears, returnRate);
+            
+            for (let i = 0; i < ttrYears; i++) {
+                const ttrWithdrawal = contribution * (ttrData.incomePercent || 0);
+                projectedSuper -= ttrWithdrawal;
                 
-                projectedSuper = projectSuperBalance(superBalance, contribution, preTTRYears, returnRate);
-                
-                for (let i = 0; i < ttrYears; i++) {
-                    const ttrWithdrawal = contribution * ttrData.incomePercent;
-                    projectedSuper -= ttrWithdrawal;
-                    
-                    const ttrContribution = contribution * (1 + ttrData.salarySacrificePercent);
-                    projectedSuper = projectedSuper * (1 + returnRate) + ttrContribution;
-                }
-            } else {
-                projectedSuper = projectSuperBalance(superBalance, contribution, yearsToRetirement, returnRate);
+                const ttrContribution = contribution * (1 + (ttrData.salarySacrificePercent || 0));
+                projectedSuper = projectedSuper * (1 + returnRate) + ttrContribution;
             }
-            
-            // Apply downsizing if applicable
-            if (downsizingData.planned && scenarioAge >= downsizingData.downsizeAge) {
-                const downsizingProceeds = Math.max(0, downsizingData.downsizeValue - residenceValue);
-                if (downsizingProceeds > 0) {
-                    const downsizerContribution = Math.min(AUSTRALIAN_RULES.DOWNSIZER_CONTRIBUTION_LIMIT, downsizingProceeds);
-                    projectedSuper += downsizerContribution;
-                }
+        } else {
+            projectedSuper = projectSuperBalance(superBalance, contribution, yearsToRetirement, returnRate);
+        }
+        
+        // Apply downsizing if applicable
+        if (downsizingData && downsizingData.planned && scenarioAge >= downsizingData.downsizeAge) {
+            const downsizingProceeds = Math.max(0, (downsizingData.downsizeValue || 0) - residenceValue);
+            if (downsizingProceeds > 0) {
+                const downsizerContribution = Math.min(AUSTRALIAN_RULES.DOWNSIZER_CONTRIBUTION_LIMIT, downsizingProceeds);
+                projectedSuper += downsizerContribution;
             }
-            
-            // Add partner's super if applicable
-            if (partnerData && partnerData.retirementAge <= scenarioAge) {
-                const partnerYearsToRetirement = scenarioAge - partnerData.age;
-                const partnerProjectedSuper = projectSuperBalance(
-                    partnerData.super, 
-                    partnerData.contribution, 
-                    partnerYearsToRetirement, 
-                    returnRate
-                );
-                
-                projectedSuper += partnerProjectedSuper;
-            }
-            
-            // Calculate retirement expenses considering dependents
-            const expenseData = calculateRetirementExpensesWithDependents(
-                scenarioAge, currentAge, currentExpenses, retirementExpenseRate, 
-                dependents, educationCosts, annualChildCost, inflationRate
+        }
+        
+        // Add partner's super if applicable
+        if (partnerData && partnerData.retirementAge <= scenarioAge) {
+            const partnerYearsToRetirement = scenarioAge - partnerData.age;
+            const partnerProjectedSuper = projectSuperBalance(
+                partnerData.super || 0, 
+                partnerData.contribution || 0, 
+                partnerYearsToRetirement, 
+                returnRate
             );
             
-            const futureRetirementExpenses = expenseData.retirementExpenses + healthcare + travel + otherCosts;
-            
-            // Calculate retirement income
-            const superIncome = calculateSustainableWithdrawal(
-                projectedSuper, 
-                retirementYears, 
-                returnRate, 
-                inflationRate,
-                scenarioAge
-            );
-            
-            // Estimate Age Pension
-            let agePension = calculateAgePension(
-                projectedSuper + investmentPropsValue + otherAssetsValue, 
-                superIncome, 
-                partnerData !== null,
-                scenarioAge
-            );
-            
-            const totalRetirementIncome = superIncome + agePension;
-            
-            // Calculate shortfall/surplus
-            const shortfall = Math.max(0, futureRetirementExpenses - totalRetirementIncome);
-            const surplus = Math.max(0, totalRetirementIncome - futureRetirementExpenses);
-            
-            // Update scenario display
-            const yearsElement = document.getElementById(`scenario-${scenarioAge}-years`);
-            const superElement = document.getElementById(`scenario-${scenarioAge}-super`);
-            const incomeElement = document.getElementById(`scenario-${scenarioAge}-income`);
-            const shortfallElement = document.getElementById(`scenario-${scenarioAge}-shortfall`);
-            const surplusElement = document.getElementById(`scenario-${scenarioAge}-surplus`);
-            
-            if (yearsElement) yearsElement.textContent = yearsToRetirement;
-            if (superElement) superElement.textContent = formatCurrency(projectedSuper);
-            if (incomeElement) incomeElement.textContent = formatCurrency(totalRetirementIncome);
-            
+            projectedSuper += partnerProjectedSuper;
+        }
+        
+        // Calculate retirement expenses considering dependents
+        const expenseData = calculateRetirementExpensesWithDependents(
+            scenarioAge, currentAge, currentExpenses, retirementExpenseRate * 100, 
+            dependents, educationCosts, annualChildCost, inflationRate
+        );
+        
+        const futureRetirementExpenses = expenseData.retirementExpenses + healthcare + travel + otherCosts;
+        
+        // Calculate retirement income
+        const superIncome = calculateSustainableWithdrawal(
+            projectedSuper, 
+            retirementYears, 
+            returnRate, 
+            inflationRate,
+            scenarioAge
+        );
+        
+        // Estimate Age Pension
+        let agePension = calculateAgePension(
+            projectedSuper + investmentPropsValue + otherAssetsValue, 
+            superIncome, 
+            partnerData !== null,
+            scenarioAge
+        );
+        
+        const totalRetirementIncome = superIncome + agePension;
+        
+        // Calculate shortfall/surplus
+        const shortfall = Math.max(0, futureRetirementExpenses - totalRetirementIncome);
+        const surplus = Math.max(0, totalRetirementIncome - futureRetirementExpenses);
+        
+        // Update scenario display
+        const yearsElement = document.getElementById(`scenario-${scenarioAge}-years`);
+        const superElement = document.getElementById(`scenario-${scenarioAge}-super`);
+        const incomeElement = document.getElementById(`scenario-${scenarioAge}-income`);
+        const shortfallElement = document.getElementById(`scenario-${scenarioAge}-shortfall`);
+        const surplusElement = document.getElementById(`scenario-${scenarioAge}-surplus`);
+        
+        if (yearsElement) yearsElement.textContent = yearsToRetirement;
+        if (superElement) superElement.textContent = formatCurrency(projectedSuper);
+        if (incomeElement) incomeElement.textContent = formatCurrency(totalRetirementIncome);
+        
+        // Update shortfall/surplus display
+        if (shortfall > 0) {
             if (shortfallElement) {
-                if (shortfall > 0) {
-                    shortfallElement.textContent = formatCurrency(shortfall);
-                    shortfallElement.style.display = 'block';
-                    shortfallElement.className = 'scenario-value shortfall';
-                    if (surplusElement) {
-                        surplusElement.style.display = 'none';
-                    }
-                } else {
-                    shortfallElement.style.display = 'none';
-                }
+                shortfallElement.textContent = formatCurrency(shortfall);
+                shortfallElement.style.display = 'block';
             }
-            
             if (surplusElement) {
-                if (surplus > 0) {
-                    surplusElement.textContent = formatCurrency(surplus);
-                    surplusElement.style.display = 'block';
-                    surplusElement.className = 'scenario-value surplus';
-                    if (shortfallElement) {
-                        shortfallElement.style.display = 'none';
-                    }
-                } else {
-                    surplusElement.style.display = 'none';
-                }
+                surplusElement.style.display = 'none';
             }
-            
-            // Update scenario context with accurate family information
-            const scenarioContextElement = document.getElementById(`scenario-${scenarioAge}-family-context`);
-            if (scenarioContextElement) {
-                const contextText = updateScenarioContext(scenarioAge, yearsToRetirement, expenseData);
-                scenarioContextElement.textContent = contextText;
+        } else if (surplus > 0) {
+            if (surplusElement) {
+                surplusElement.textContent = formatCurrency(surplus);
+                surplusElement.style.display = 'block';
             }
-            
-            return {
-                age: scenarioAge,
-                yearsToRetirement,
-                projectedSuper,
-                retirementIncome: totalRetirementIncome,
-                shortfall,
-                surplus
-            };
-        });
-    }
+            if (shortfallElement) {
+                shortfallElement.style.display = 'none';
+            }
+        }
+        
+        // Update scenario context with accurate family information
+        const scenarioContextElement = document.getElementById(`scenario-${scenarioAge}-family-context`);
+        if (scenarioContextElement) {
+            const contextText = updateScenarioContext(scenarioAge, yearsToRetirement, expenseData);
+            scenarioContextElement.textContent = contextText;
+        }
+        
+        return {
+            age: scenarioAge,
+            yearsToRetirement,
+            projectedSuper,
+            retirementIncome: totalRetirementIncome,
+            shortfall,
+            surplus
+        };
+    });
+}
     
     function generateTTRAnalysis(currentAge, ttrData, superBalance, income, isHighIncomeEarner) {
         return safeCalculate(() => {
