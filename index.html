@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Advanced Australian Retirement Financial Planner</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
             --primary: #2c3e50;
@@ -1591,6 +1591,30 @@ let retirementChart = null;
 let allocationChart = null;
 let autoCalculateTimeout = null;
 
+// ==================== TAB SWITCHING ====================
+function setupTabSwitching() {
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabId = tab.getAttribute('data-tab');
+            
+            // Update active tab
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            // Show corresponding tab content
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+                if (content.id === `${tabId}-tab`) {
+                    content.classList.add('active');
+                }
+            });
+        });
+    });
+}
+
 // ==================== EXPENSE CALCULATION FUNCTIONS ====================
 
 function formatCurrency(amount) {
@@ -2226,6 +2250,13 @@ function updateExpenseTimelinePreview() {
 
 // Initialize function
 function initializeApp() {
+setupTabSwitching();
+
+    // Initialize default dependents (3 teenage children for demonstration)
+    addDependent();
+    addDependent();
+    addDependent();
+
     // DOM Elements
     const calculateBtn = document.getElementById('calculate-btn');
     const saveBtn = document.getElementById('save-btn');
@@ -2269,38 +2300,11 @@ function initializeApp() {
     // Dependents elements
     const addDependentBtn = document.getElementById('add-dependent');
     
-// Add debug button for testing
-const debugBtn = document.createElement('button');
-debugBtn.textContent = 'Debug Timeline';
-debugBtn.className = 'btn btn-warning';
-debugBtn.style.marginTop = '10px';
-debugBtn.onclick = function() {
-    console.log('=== DEBUG TIMELINE ===');
-    const currentAge = validateFinancialInput(document.getElementById('current-age').value, 'current age');
-    const currentExpensesValue = validateFinancialInput(document.getElementById('current-expenses').value, 'current expenses');
-    const educationCostsValue = validateFinancialInput(document.getElementById('education-costs').value, 'education costs');
-    const annualChildCostValue = validateFinancialInput(document.getElementById('annual-child-cost').value, 'annual child cost');
-    
-    console.log('Inputs:', {
-        currentAge,
-        currentExpensesValue,
-        educationCostsValue,
-        annualChildCostValue,
-        dependents: dependents
+if (addDependentBtn) {
+    addDependentBtn.addEventListener('click', function() {
+        addDependent();
     });
-    
-    const timeline = calculateExpenseTimeline(currentAge, currentExpensesValue, dependents, educationCostsValue, annualChildCostValue);
-    console.log('Timeline result:', timeline);
-    
-    if (timeline.length > 0) {
-        alert(`Timeline generated with ${timeline.length} entries. Check console for details.`);
-    } else {
-        alert('No timeline generated. Check console for errors.');
-    }
-};
-
-// Add the debug button to the dependents section
-document.querySelector('.dependents-section').appendChild(debugBtn);
+}
 
     // Input fields
     const currentAge = document.getElementById('current-age');
@@ -2393,38 +2397,6 @@ document.querySelector('.dependents-section').appendChild(debugBtn);
     const allocationRecommendation = document.getElementById('allocation-recommendation');
     const recommendationsList = document.getElementById('recommendations-list');
 
-    // Add default dependents for demonstration (3 teenage children)
-    addDependent();
-    addDependent();
-    addDependent();
-
-    // Dependents event listeners
-    addDependentBtn.addEventListener('click', addDependent);
-    
-    // Update timeline when relevant inputs change
-    [currentAge, currentExpenses, educationCosts, annualChildCost].forEach(input => {
-        if (input) {
-            input.addEventListener('input', updateExpenseTimelinePreview);
-        }
-    });
-
-    // Tab functionality
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const tabId = tab.getAttribute('data-tab');
-            
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            
-            tabContents.forEach(content => {
-                content.classList.remove('active');
-                if (content.id === `${tabId}-tab`) {
-                    content.classList.add('active');
-                }
-            });
-        });
-    });
-    
 
     function calculateOptimalRetirementAge() {
         return safeCalculate(() => {
