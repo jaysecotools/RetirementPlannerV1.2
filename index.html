@@ -1591,6 +1591,10 @@ let retirementChart = null;
 let allocationChart = null;
 let autoCalculateTimeout = null;
 
+// Expense timeline data
+let expenseTimeline = [];
+let expenseTimelineChart = null;
+
 // ==================== TAB SWITCHING ====================
 function setupTabSwitching() {
     const tabs = document.querySelectorAll('.tab');
@@ -1927,8 +1931,8 @@ function calculateExpenseTimeline(currentAge, currentExpenses, dependents, educa
         dependents.forEach((dep, index) => {
             console.log(`Processing dependent ${index + 1}:`, dep);
             
-            const currentDepAge = parseInt(dep.age) || 15;
-            const supportUntilAge = parseInt(dep.supportUntil) || 18;
+            let currentDepAge = parseInt(dep.age) || 15;
+            let supportUntilAge = parseInt(dep.supportUntil) || 18;
             
             // Validate ages
             if (isNaN(currentDepAge) || currentDepAge < 0 || currentDepAge > 30) {
@@ -2068,6 +2072,7 @@ function calculateExpenseTimeline(currentAge, currentExpenses, dependents, educa
         }
         
         console.log('Final timeline:', timeline);
+        expenseTimeline = timeline; // Store for chart generation
         return timeline;
     }) || [];
 }
@@ -2086,12 +2091,14 @@ function addDependent() {
     dependents.push(dependent);
     renderDependents();
     updateExpenseTimelinePreview();
+    generateExpenseTimelineChart(); // Generate chart when dependent is added
 }
 
 function removeDependent(id) {
     dependents = dependents.filter(dep => dep.id !== id);
     renderDependents();
     updateExpenseTimelinePreview();
+    generateExpenseTimelineChart(); // Regenerate chart when dependent is removed
 }
 
 function renderDependents() {
@@ -2162,6 +2169,7 @@ function updateDependent(id, field, value) {
         }
         renderDependents();
         updateExpenseTimelinePreview();
+        generateExpenseTimelineChart(); // Regenerate chart when dependent is updated
     }
 }
 
@@ -2248,9 +2256,109 @@ function updateExpenseTimelinePreview() {
     container.innerHTML = html;
 }
 
+// ==================== EXPENSE TIMELINE CHART ====================
+function generateExpenseTimelineChart() {
+    const ctx = document.getElementById('expense-timeline-chart');
+    if (!ctx) return;
+    
+    // Destroy existing chart
+    if (expenseTimelineChart) {
+        expenseTimelineChart.destroy();
+    }
+    
+    if (dependents.length === 0 || expenseTimeline.length === 0) {
+        ctx.closest('.chart-container').style.display = 'none';
+        return;
+    }
+    
+    ctx.closest('.chart-container').style.display = 'block';
+    
+    const labels = expenseTimeline.map(item => `${item.year}\nAge ${item.age}`);
+    const expenses = expenseTimeline.map(item => item.annualExpense);
+    
+    // Calculate base expenses for reference line
+    const currentExpensesValue = validateFinancialInput(document.getElementById('current-expenses').value, 'current expenses');
+    const annualChildCostValue = validateFinancialInput(document.getElementById('annual-child-cost').value, 'annual child cost');
+    const educationCostsValue = validateFinancialInput(document.getElementById('education-costs').value, 'education costs');
+    const baseExpenses = currentExpensesValue - (dependents.length * annualChildCostValue) - educationCostsValue;
+    
+    expenseTimelineChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Annual Household Expenses',
+                    data: expenses,
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Base Expenses (No Dependents)',
+                    data: Array(labels.length).fill(baseExpenses),
+                    borderColor: '#2ecc71',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    fill: false,
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Household Expense Projection with Dependents',
+                    font: {
+                        size: 16
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                        }
+                    }
+                },
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Annual Expenses (AUD)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return formatCurrency(value);
+                        }
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Year / Age'
+                    }
+                }
+            }
+        }
+    });
+}
+
 // Initialize function
 function initializeApp() {
-setupTabSwitching();
+    setupTabSwitching();
 
     // Initialize default dependents (3 teenage children for demonstration)
     addDependent();
@@ -2300,11 +2408,11 @@ setupTabSwitching();
     // Dependents elements
     const addDependentBtn = document.getElementById('add-dependent');
     
-if (addDependentBtn) {
-    addDependentBtn.addEventListener('click', function() {
-        addDependent();
-    });
-}
+    if (addDependentBtn) {
+        addDependentBtn.addEventListener('click', function() {
+            addDependent();
+        });
+    }
 
     // Input fields
     const currentAge = document.getElementById('current-age');
@@ -2396,7 +2504,6 @@ if (addDependentBtn) {
     const taxAnalysis = document.getElementById('tax-analysis');
     const allocationRecommendation = document.getElementById('allocation-recommendation');
     const recommendationsList = document.getElementById('recommendations-list');
-
 
     function calculateOptimalRetirementAge() {
         return safeCalculate(() => {
@@ -2506,42 +2613,48 @@ if (addDependentBtn) {
     }
     
     // Event listener for calculating retirement age options
-    calculateRetirementAgeBtn.addEventListener('click', function() {
-        const optimalAge = calculateOptimalRetirementAge();
-        const minAge = calculateMinimumRetirementAge();
-        
-        calculatedAgeElement.textContent = optimalAge;
-        minCalculatedAgeElement.textContent = minAge;
-        
-        autoRetirementResult.classList.remove('hidden');
-        minRetirementResult.classList.remove('hidden');
-    });
+    if (calculateRetirementAgeBtn) {
+        calculateRetirementAgeBtn.addEventListener('click', function() {
+            const optimalAge = calculateOptimalRetirementAge();
+            const minAge = calculateMinimumRetirementAge();
+            
+            calculatedAgeElement.textContent = optimalAge;
+            minCalculatedAgeElement.textContent = minAge;
+            
+            autoRetirementResult.classList.remove('hidden');
+            minRetirementResult.classList.remove('hidden');
+        });
+    }
     
     // Event listener for using calculated optimal age
-    useCalculatedAgeBtn.addEventListener('click', function() {
-        const optimalAge = calculatedAgeElement.textContent;
-        retirementAge.value = optimalAge;
-        autoRetirementResult.classList.add('hidden');
-        minRetirementResult.classList.add('hidden');
-        
-        // If auto-calculation is enabled, recalculate the full plan
-        if (autoCalculateCheckbox.checked && validateInputs()) {
-            calculateRetirement();
-        }
-    });
+    if (useCalculatedAgeBtn) {
+        useCalculatedAgeBtn.addEventListener('click', function() {
+            const optimalAge = calculatedAgeElement.textContent;
+            retirementAge.value = optimalAge;
+            autoRetirementResult.classList.add('hidden');
+            minRetirementResult.classList.add('hidden');
+            
+            // If auto-calculation is enabled, recalculate the full plan
+            if (autoCalculateCheckbox && autoCalculateCheckbox.checked && validateInputs()) {
+                calculateRetirement();
+            }
+        });
+    }
     
     // Event listener for using calculated minimum age
-    useMinCalculatedAgeBtn.addEventListener('click', function() {
-        const minAge = minCalculatedAgeElement.textContent;
-        retirementAge.value = minAge;
-        autoRetirementResult.classList.add('hidden');
-        minRetirementResult.classList.add('hidden');
-        
-        // If auto-calculation is enabled, recalculate the full plan
-        if (autoCalculateCheckbox.checked && validateInputs()) {
-            calculateRetirement();
-        }
-    });
+    if (useMinCalculatedAgeBtn) {
+        useMinCalculatedAgeBtn.addEventListener('click', function() {
+            const minAge = minCalculatedAgeElement.textContent;
+            retirementAge.value = minAge;
+            autoRetirementResult.classList.add('hidden');
+            minRetirementResult.classList.add('hidden');
+            
+            // If auto-calculation is enabled, recalculate the full plan
+            if (autoCalculateCheckbox && autoCalculateCheckbox.checked && validateInputs()) {
+                calculateRetirement();
+            }
+        });
+    }
     
     // Auto-calculation function
     function setupAutoCalculation() {
@@ -2550,6 +2663,7 @@ if (addDependentBtn) {
             currentAge, retirementAge, lifeExpectancy, inflation, investmentReturn,
             currentSuper, currentIncome, additionalContribution, currentExpenses,
             retirementExpenses, healthcareCosts, travelBudget, otherRetirementCosts,
+            annualChildCost, educationCosts,
             partnerAge, partnerRetirementAge, partnerIncome, partnerSuper, partnerContribution,
             downsizeValue, downsizeAge, ttrStartAge, ttrIncome, ttrSalarySacrifice,
             investmentProperties, investmentPropertiesDebt, primaryResidenceValue,
@@ -2590,7 +2704,7 @@ if (addDependentBtn) {
     
     // Handle auto-calculation with debouncing
     function handleAutoCalculation() {
-        if (!autoCalculateCheckbox.checked) return;
+        if (!autoCalculateCheckbox || !autoCalculateCheckbox.checked) return;
         
         // Clear existing timeout
         if (autoCalculateTimeout) {
@@ -2606,14 +2720,16 @@ if (addDependentBtn) {
     }
     
     // Auto-calculation toggle event
-    autoCalculateCheckbox.addEventListener('change', function() {
-        if (this.checked && resultsContent.classList.contains('hidden')) {
-            // If auto-calc is enabled but no results yet, do initial calculation
-            if (validateInputs()) {
-                calculateRetirement();
+    if (autoCalculateCheckbox) {
+        autoCalculateCheckbox.addEventListener('change', function() {
+            if (this.checked && resultsContent.classList.contains('hidden')) {
+                // If auto-calc is enabled but no results yet, do initial calculation
+                if (validateInputs()) {
+                    calculateRetirement();
+                }
             }
-        }
-    });
+        });
+    }
     
     // Scenario tab functionality
     scenarioTabs.forEach(tab => {
@@ -2635,40 +2751,48 @@ if (addDependentBtn) {
     });
 
     // Partner checkbox toggle
-    hasPartnerCheckbox.addEventListener('change', function() {
-        if (this.checked) {
-            partnerDetails.classList.remove('hidden');
-        } else {
-            partnerDetails.classList.add('hidden');
-        }
-    });
+    if (hasPartnerCheckbox) {
+        hasPartnerCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                partnerDetails.classList.remove('hidden');
+            } else {
+                partnerDetails.classList.add('hidden');
+            }
+        });
+    }
     
     // Downsizing checkbox toggle
-    considerDownsizingCheckbox.addEventListener('change', function() {
-        if (this.checked) {
-            downsizingDetails.classList.remove('hidden');
-        } else {
-            downsizingDetails.classList.add('hidden');
-        }
-    });
+    if (considerDownsizingCheckbox) {
+        considerDownsizingCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                downsizingDetails.classList.remove('hidden');
+            } else {
+                downsizingDetails.classList.add('hidden');
+            }
+        });
+    }
     
     // TTR checkbox toggle
-    considerTTRCheckbox.addEventListener('change', function() {
-        if (this.checked) {
-            ttrDetails.classList.remove('hidden');
-        } else {
-            ttrDetails.classList.add('hidden');
-        }
-    });
+    if (considerTTRCheckbox) {
+        considerTTRCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                ttrDetails.classList.remove('hidden');
+            } else {
+                ttrDetails.classList.add('hidden');
+            }
+        });
+    }
     
     // SMSF checkbox toggle
-    hasSmsfCheckbox.addEventListener('change', function() {
-        if (this.checked) {
-            smsfDetails.classList.remove('hidden');
-        } else {
-            smsfDetails.classList.add('hidden');
-        }
-    });
+    if (hasSmsfCheckbox) {
+        hasSmsfCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                smsfDetails.classList.remove('hidden');
+            } else {
+                smsfDetails.classList.add('hidden');
+            }
+        });
+    }
     
     // Input validation
     function validateInputs() {
@@ -2695,7 +2819,7 @@ if (addDependentBtn) {
             document.getElementById('retirement-age-error').style.display = 'block';
         }
         
-        if (hasPartnerCheckbox.checked) {
+        if (hasPartnerCheckbox && hasPartnerCheckbox.checked) {
             const partnerAgeValue = validateFinancialInput(partnerAge.value, 'partner age') || 42;
             if (isNaN(partnerAgeValue) || partnerAgeValue < 18 || partnerAgeValue > 100) {
                 errors.push("Partner age must be between 18 and 100");
@@ -2733,28 +2857,30 @@ if (addDependentBtn) {
     }
     
     // Calculate retirement plan
-    calculateBtn.addEventListener('click', function() {
-        if (!validateInputs()) {
-            return;
-        }
-        
-        calculationLoading.style.display = 'block';
-        calculateBtn.disabled = true;
-        setLoadingState(true);
-        
-        setTimeout(() => {
-            try {
-                calculateRetirement();
-            } catch (error) {
-                console.error("Calculation error:", error);
-                alert("There was an error calculating your retirement plan. Please check your inputs and try again.");
-            } finally {
-                calculationLoading.style.display = 'none';
-                calculateBtn.disabled = false;
-                setLoadingState(false);
+    if (calculateBtn) {
+        calculateBtn.addEventListener('click', function() {
+            if (!validateInputs()) {
+                return;
             }
-        }, 100);
-    });
+            
+            calculationLoading.style.display = 'block';
+            calculateBtn.disabled = true;
+            setLoadingState(true);
+            
+            setTimeout(() => {
+                try {
+                    calculateRetirement();
+                } catch (error) {
+                    console.error("Calculation error:", error);
+                    alert("There was an error calculating your retirement plan. Please check your inputs and try again.");
+                } finally {
+                    calculationLoading.style.display = 'none';
+                    calculateBtn.disabled = false;
+                    setLoadingState(false);
+                }
+            }, 100);
+        });
+    }
     
     function setLoadingState(isLoading) {
         document.body.style.cursor = isLoading ? 'wait' : 'default';
@@ -2787,7 +2913,7 @@ if (addDependentBtn) {
             
             // Partner data with sanitization
             let partnerData = null;
-            if (hasPartnerCheckbox.checked) {
+            if (hasPartnerCheckbox && hasPartnerCheckbox.checked) {
                 partnerData = {
                     age: validateFinancialInput(partnerAge.value, 'partner age') || 42,
                     retirementAge: validateFinancialInput(partnerRetirementAge.value, 'partner retirement age') || 65,
@@ -2799,13 +2925,13 @@ if (addDependentBtn) {
             }
             
             // Strategy data with sanitization
-            const downsizingData = considerDownsizingCheckbox.checked ? {
+            const downsizingData = considerDownsizingCheckbox && considerDownsizingCheckbox.checked ? {
                 planned: true,
                 downsizeValue: validateFinancialInput(downsizeValue.value, 'downsize value') || 0,
                 downsizeAge: Math.max(55, Math.min(85, validateFinancialInput(downsizeAge.value, 'downsize age') || 70))
             } : { planned: false };
             
-            const ttrData = considerTTRCheckbox.checked ? {
+            const ttrData = considerTTRCheckbox && considerTTRCheckbox.checked ? {
                 planned: true,
                 startAge: Math.max(55, Math.min(75, validateFinancialInput(ttrStartAge.value, 'ttr start age') || 60)),
                 incomePercent: Math.max(0.1, Math.min(1, (validateFinancialInput(ttrIncome.value, 'ttr income') || 50) / 100)),
@@ -2821,20 +2947,20 @@ if (addDependentBtn) {
             const personalDebtValue = validateFinancialInput(personalDebt.value, 'personal debt') || 0;
             
             // SMSF data with sanitization
-            const smsfData = hasSmsfCheckbox.checked ? {
+            const smsfData = hasSmsfCheckbox && hasSmsfCheckbox.checked ? {
                 hasSmsf: true,
                 adminCosts: validateFinancialInput(smsfAdminCosts.value, 'smsf admin costs') || 0
             } : { hasSmsf: false };
             
             // Insurance data
             const insuranceData = {
-                incomeProtection: hasIncomeProtection.checked,
-                lifeInsurance: hasLifeInsurance.checked,
-                tpdInsurance: hasTpdInsurance.checked
+                incomeProtection: hasIncomeProtection && hasIncomeProtection.checked,
+                lifeInsurance: hasLifeInsurance && hasLifeInsurance.checked,
+                tpdInsurance: hasTpdInsurance && hasTpdInsurance.checked
             };
             
             // High income earner flag
-            const isHighIncomeEarner = highIncomeEarnerCheckbox.checked;
+            const isHighIncomeEarner = highIncomeEarnerCheckbox && highIncomeEarnerCheckbox.checked;
             
             // Risk profile
             const riskProfileValue = riskProfile.value;
@@ -2846,12 +2972,15 @@ if (addDependentBtn) {
             const netWorth = totalAssets - totalLiabilities;
             
             // Update net worth display
-            netWorthAssets.textContent = formatCurrency(totalAssets);
-            netWorthLiabilities.textContent = formatCurrency(totalLiabilities);
-            netWorthTotal.textContent = formatCurrency(netWorth);
+            if (netWorthAssets) netWorthAssets.textContent = formatCurrency(totalAssets);
+            if (netWorthLiabilities) netWorthLiabilities.textContent = formatCurrency(totalLiabilities);
+            if (netWorthTotal) netWorthTotal.textContent = formatCurrency(netWorth);
             
             // Generate family timeline analysis
             generateFamilyTimelineAnalysis(age, currentExpensesValue, dependents, educationCostsValue, annualChildCostValue);
+            
+            // Generate expense timeline chart
+            generateExpenseTimelineChart();
             
             // Calculate and display all scenarios with dependents
             calculateAndDisplayScenario(55, age, expectancy, inflationRate, returnRate, superBalance, totalContribution, 
@@ -2891,195 +3020,195 @@ if (addDependentBtn) {
             generateAllocationChart(riskProfileValue, age);
             
             // Show results
-            resultsPlaceholder.classList.add('hidden');
-            resultsContent.classList.remove('hidden');
+            if (resultsPlaceholder) resultsPlaceholder.classList.add('hidden');
+            if (resultsContent) resultsContent.classList.remove('hidden');
         });
     }
 
     // Family timeline analysis generation
     function generateFamilyTimelineAnalysis(currentAge, currentExpenses, dependents, educationCosts, annualChildCost) {
-    const container = document.getElementById('family-timeline-analysis');
-    if (!container) return;
-    
-    if (dependents.length === 0) {
-        container.innerHTML = '<div class="expense-timeline"><p>No dependents added. Add dependents to see household expense projections.</p></div>';
-        return;
-    }
-    
-    const timeline = calculateExpenseTimeline(currentAge, currentExpenses, dependents, educationCosts, annualChildCost);
-    
-    if (timeline.length === 0) {
-        container.innerHTML = '<div class="expense-timeline"><p>Unable to generate expense timeline with current data.</p></div>';
-        return;
-    }
-    
-    let html = '<div class="expense-timeline">';
-    html += '<h4>Your Household Expense Projection</h4>';
-    
-    timeline.forEach(item => {
-        html += `<div class="timeline-item">
-            <div class="timeline-year">${item.year} (Age ${item.age})</div>
-            <div class="timeline-value">${formatCurrency(item.annualExpense)}</div>
-        </div>`;
+        const container = document.getElementById('family-timeline-analysis');
+        if (!container) return;
         
-        if (item.events && item.events.length > 0) {
-            item.events.forEach(event => {
-                html += `<div class="timeline-item" style="padding-left: 20px; font-size: 0.9rem; color: #666;">
-                    <div class="timeline-event">${event.description}</div>
-                    <div class="timeline-change negative-change">-${formatCurrency(event.costReduction)}</div>
-                </div>`;
-            });
+        if (dependents.length === 0) {
+            container.innerHTML = '<div class="expense-timeline"><p>No dependents added. Add dependents to see household expense projections.</p></div>';
+            return;
         }
-    });
-    
-    html += '</div>';
-    container.innerHTML = html;
-}
+        
+        const timeline = calculateExpenseTimeline(currentAge, currentExpenses, dependents, educationCosts, annualChildCost);
+        
+        if (timeline.length === 0) {
+            container.innerHTML = '<div class="expense-timeline"><p>Unable to generate expense timeline with current data.</p></div>';
+            return;
+        }
+        
+        let html = '<div class="expense-timeline">';
+        html += '<h4>Your Household Expense Projection</h4>';
+        
+        timeline.forEach(item => {
+            html += `<div class="timeline-item">
+                <div class="timeline-year">${item.year} (Age ${item.age})</div>
+                <div class="timeline-value">${formatCurrency(item.annualExpense)}</div>
+            </div>`;
+            
+            if (item.events && item.events.length > 0) {
+                item.events.forEach(event => {
+                    html += `<div class="timeline-item" style="padding-left: 20px; font-size: 0.9rem; color: #666;">
+                        <div class="timeline-event">${event.description}</div>
+                        <div class="timeline-change negative-change">-${formatCurrency(event.costReduction)}</div>
+                    </div>`;
+                });
+            }
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
 
     // Enhanced scenario calculation with dependents
- /**
- * Calculate and display scenario with enhanced family context
- */
-function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, inflationRate, returnRate, 
-                             superBalance, contribution, currentExpenses, retirementExpenseRate, healthcare, travel, otherCosts,
-                             dependents, educationCosts, annualChildCost, partnerData, downsizingData, ttrData, 
-                             investmentPropsValue, residenceValue, otherAssetsValue, smsfData, isHighIncomeEarner) {
-    return safeCalculate(() => {
-        const yearsToRetirement = Math.max(0, scenarioAge - currentAge);
-        const retirementYears = Math.max(0, lifeExpectancy - scenarioAge);
-        
-        // Calculate future super balance
-        let projectedSuper = projectSuperBalance(superBalance, contribution, yearsToRetirement, returnRate);
-        
-        // Apply SMSF costs if applicable
-        if (smsfData && smsfData.hasSmsf) {
-            for (let i = 0; i < yearsToRetirement; i++) {
-                projectedSuper -= smsfData.adminCosts || 0;
+    /**
+     * Calculate and display scenario with enhanced family context
+     */
+    function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, inflationRate, returnRate, 
+                                 superBalance, contribution, currentExpenses, retirementExpenseRate, healthcare, travel, otherCosts,
+                                 dependents, educationCosts, annualChildCost, partnerData, downsizingData, ttrData, 
+                                 investmentPropsValue, residenceValue, otherAssetsValue, smsfData, isHighIncomeEarner) {
+        return safeCalculate(() => {
+            const yearsToRetirement = Math.max(0, scenarioAge - currentAge);
+            const retirementYears = Math.max(0, lifeExpectancy - scenarioAge);
+            
+            // Calculate future super balance
+            let projectedSuper = projectSuperBalance(superBalance, contribution, yearsToRetirement, returnRate);
+            
+            // Apply SMSF costs if applicable
+            if (smsfData && smsfData.hasSmsf) {
+                for (let i = 0; i < yearsToRetirement; i++) {
+                    projectedSuper -= smsfData.adminCosts || 0;
+                }
             }
-        }
-        
-        // Apply TTR strategy if applicable
-        if (ttrData && ttrData.planned && scenarioAge >= ttrData.startAge) {
-            const ttrYears = Math.min(yearsToRetirement, scenarioAge - ttrData.startAge);
-            const preTTRYears = yearsToRetirement - ttrYears;
             
-            projectedSuper = projectSuperBalance(superBalance, contribution, preTTRYears, returnRate);
-            
-            for (let i = 0; i < ttrYears; i++) {
-                const ttrWithdrawal = contribution * (ttrData.incomePercent || 0);
-                projectedSuper -= ttrWithdrawal;
+            // Apply TTR strategy if applicable
+            if (ttrData && ttrData.planned && scenarioAge >= ttrData.startAge) {
+                const ttrYears = Math.min(yearsToRetirement, scenarioAge - ttrData.startAge);
+                const preTTRYears = yearsToRetirement - ttrYears;
                 
-                const ttrContribution = contribution * (1 + (ttrData.salarySacrificePercent || 0));
-                projectedSuper = projectedSuper * (1 + returnRate) + ttrContribution;
+                projectedSuper = projectSuperBalance(superBalance, contribution, preTTRYears, returnRate);
+                
+                for (let i = 0; i < ttrYears; i++) {
+                    const ttrWithdrawal = contribution * (ttrData.incomePercent || 0);
+                    projectedSuper -= ttrWithdrawal;
+                    
+                    const ttrContribution = contribution * (1 + (ttrData.salarySacrificePercent || 0));
+                    projectedSuper = projectedSuper * (1 + returnRate) + ttrContribution;
+                }
+            } else {
+                projectedSuper = projectSuperBalance(superBalance, contribution, yearsToRetirement, returnRate);
             }
-        } else {
-            projectedSuper = projectSuperBalance(superBalance, contribution, yearsToRetirement, returnRate);
-        }
-        
-        // Apply downsizing if applicable
-        if (downsizingData && downsizingData.planned && scenarioAge >= downsizingData.downsizeAge) {
-            const downsizingProceeds = Math.max(0, (downsizingData.downsizeValue || 0) - residenceValue);
-            if (downsizingProceeds > 0) {
-                const downsizerContribution = Math.min(AUSTRALIAN_RULES.DOWNSIZER_CONTRIBUTION_LIMIT, downsizingProceeds);
-                projectedSuper += downsizerContribution;
+            
+            // Apply downsizing if applicable
+            if (downsizingData && downsizingData.planned && scenarioAge >= downsizingData.downsizeAge) {
+                const downsizingProceeds = Math.max(0, (downsizingData.downsizeValue || 0) - residenceValue);
+                if (downsizingProceeds > 0) {
+                    const downsizerContribution = Math.min(AUSTRALIAN_RULES.DOWNSIZER_CONTRIBUTION_LIMIT, downsizingProceeds);
+                    projectedSuper += downsizerContribution;
+                }
             }
-        }
-        
-        // Add partner's super if applicable
-        if (partnerData && partnerData.retirementAge <= scenarioAge) {
-            const partnerYearsToRetirement = scenarioAge - partnerData.age;
-            const partnerProjectedSuper = projectSuperBalance(
-                partnerData.super || 0, 
-                partnerData.contribution || 0, 
-                partnerYearsToRetirement, 
-                returnRate
+            
+            // Add partner's super if applicable
+            if (partnerData && partnerData.retirementAge <= scenarioAge) {
+                const partnerYearsToRetirement = scenarioAge - partnerData.age;
+                const partnerProjectedSuper = projectSuperBalance(
+                    partnerData.super || 0, 
+                    partnerData.contribution || 0, 
+                    partnerYearsToRetirement, 
+                    returnRate
+                );
+                
+                projectedSuper += partnerProjectedSuper;
+            }
+            
+            // Calculate retirement expenses considering dependents
+            const expenseData = calculateRetirementExpensesWithDependents(
+                scenarioAge, currentAge, currentExpenses, retirementExpenseRate * 100, 
+                dependents, educationCosts, annualChildCost, inflationRate
             );
             
-            projectedSuper += partnerProjectedSuper;
-        }
-        
-        // Calculate retirement expenses considering dependents
-        const expenseData = calculateRetirementExpensesWithDependents(
-            scenarioAge, currentAge, currentExpenses, retirementExpenseRate * 100, 
-            dependents, educationCosts, annualChildCost, inflationRate
-        );
-        
-        const futureRetirementExpenses = expenseData.retirementExpenses + healthcare + travel + otherCosts;
-        
-        // Calculate retirement income
-        const superIncome = calculateSustainableWithdrawal(
-            projectedSuper, 
-            retirementYears, 
-            returnRate, 
-            inflationRate,
-            scenarioAge
-        );
-        
-        // Estimate Age Pension
-        let agePension = calculateAgePension(
-            projectedSuper + investmentPropsValue + otherAssetsValue, 
-            superIncome, 
-            partnerData !== null,
-            scenarioAge
-        );
-        
-        const totalRetirementIncome = superIncome + agePension;
-        
-        // Calculate shortfall/surplus
-        const shortfall = Math.max(0, futureRetirementExpenses - totalRetirementIncome);
-        const surplus = Math.max(0, totalRetirementIncome - futureRetirementExpenses);
-        
-        // Update scenario display
-        const yearsElement = document.getElementById(`scenario-${scenarioAge}-years`);
-        const superElement = document.getElementById(`scenario-${scenarioAge}-super`);
-        const incomeElement = document.getElementById(`scenario-${scenarioAge}-income`);
-        const shortfallElement = document.getElementById(`scenario-${scenarioAge}-shortfall`);
-        const surplusElement = document.getElementById(`scenario-${scenarioAge}-surplus`);
-        
-        if (yearsElement) yearsElement.textContent = yearsToRetirement;
-        if (superElement) superElement.textContent = formatCurrency(projectedSuper);
-        if (incomeElement) incomeElement.textContent = formatCurrency(totalRetirementIncome);
-        
-        // Update shortfall/surplus display
-        if (shortfall > 0) {
-            if (shortfallElement) {
-                shortfallElement.textContent = formatCurrency(shortfall);
-                shortfallElement.style.display = 'block';
+            const futureRetirementExpenses = expenseData.retirementExpenses + healthcare + travel + otherCosts;
+            
+            // Calculate retirement income
+            const superIncome = calculateSustainableWithdrawal(
+                projectedSuper, 
+                retirementYears, 
+                returnRate, 
+                inflationRate,
+                scenarioAge
+            );
+            
+            // Estimate Age Pension
+            let agePension = calculateAgePension(
+                projectedSuper + investmentPropsValue + otherAssetsValue, 
+                superIncome, 
+                partnerData !== null,
+                scenarioAge
+            );
+            
+            const totalRetirementIncome = superIncome + agePension;
+            
+            // Calculate shortfall/surplus
+            const shortfall = Math.max(0, futureRetirementExpenses - totalRetirementIncome);
+            const surplus = Math.max(0, totalRetirementIncome - futureRetirementExpenses);
+            
+            // Update scenario display
+            const yearsElement = document.getElementById(`scenario-${scenarioAge}-years`);
+            const superElement = document.getElementById(`scenario-${scenarioAge}-super`);
+            const incomeElement = document.getElementById(`scenario-${scenarioAge}-income`);
+            const shortfallElement = document.getElementById(`scenario-${scenarioAge}-shortfall`);
+            const surplusElement = document.getElementById(`scenario-${scenarioAge}-surplus`);
+            
+            if (yearsElement) yearsElement.textContent = yearsToRetirement;
+            if (superElement) superElement.textContent = formatCurrency(projectedSuper);
+            if (incomeElement) incomeElement.textContent = formatCurrency(totalRetirementIncome);
+            
+            // Update shortfall/surplus display
+            if (shortfall > 0) {
+                if (shortfallElement) {
+                    shortfallElement.textContent = formatCurrency(shortfall);
+                    shortfallElement.style.display = 'block';
+                }
+                if (surplusElement) {
+                    surplusElement.style.display = 'none';
+                }
+            } else if (surplus > 0) {
+                if (surplusElement) {
+                    surplusElement.textContent = formatCurrency(surplus);
+                    surplusElement.style.display = 'block';
+                }
+                if (shortfallElement) {
+                    shortfallElement.style.display = 'none';
+                }
             }
-            if (surplusElement) {
-                surplusElement.style.display = 'none';
+            
+            // Update scenario context with accurate family information
+            const scenarioContextElement = document.getElementById(`scenario-${scenarioAge}-family-context`);
+            if (scenarioContextElement) {
+                const contextText = updateScenarioContext(scenarioAge, yearsToRetirement, expenseData);
+                scenarioContextElement.textContent = contextText;
             }
-        } else if (surplus > 0) {
-            if (surplusElement) {
-                surplusElement.textContent = formatCurrency(surplus);
-                surplusElement.style.display = 'block';
-            }
-            if (shortfallElement) {
-                shortfallElement.style.display = 'none';
-            }
-        }
-        
-        // Update scenario context with accurate family information
-        const scenarioContextElement = document.getElementById(`scenario-${scenarioAge}-family-context`);
-        if (scenarioContextElement) {
-            const contextText = updateScenarioContext(scenarioAge, yearsToRetirement, expenseData);
-            scenarioContextElement.textContent = contextText;
-        }
-        
-        return {
-            age: scenarioAge,
-            yearsToRetirement,
-            projectedSuper,
-            retirementIncome: totalRetirementIncome,
-            shortfall,
-            surplus
-        };
-    });
-}
+            
+            return {
+                age: scenarioAge,
+                yearsToRetirement,
+                projectedSuper,
+                retirementIncome: totalRetirementIncome,
+                shortfall,
+                surplus
+            };
+        });
+    }
     
     function generateTTRAnalysis(currentAge, ttrData, superBalance, income, isHighIncomeEarner) {
         return safeCalculate(() => {
-            if (!ttrData.planned) {
+            if (!ttrData || !ttrData.planned) {
                 ttrAnalysis.innerHTML = `
                     <div class="recommendation">
                         <h4>Transition to Retirement Strategy</h4>
@@ -3150,7 +3279,7 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
     
     function generateDownsizingAnalysis(downsizingData, residenceValue, residenceDebt) {
         return safeCalculate(() => {
-            if (!downsizingData.planned) {
+            if (!downsizingData || !downsizingData.planned) {
                 downsizingAnalysis.innerHTML = `
                     <div class="recommendation">
                         <h4>Property Downsizing Strategy</h4>
@@ -3355,6 +3484,8 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
         return safeCalculate(() => {
             const ctx = document.getElementById('allocation-chart');
             
+            if (!ctx) return;
+            
             if (allocationChart) {
                 allocationChart.destroy();
             }
@@ -3424,6 +3555,8 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
     function generateChart(currentAge, lifeExpectancy, returnRate, superBalance, contribution, partnerData, ttrData) {
         return safeCalculate(() => {
             const ctx = document.getElementById('retirement-chart');
+            
+            if (!ctx) return;
             
             if (retirementChart) {
                 retirementChart.destroy();
@@ -3567,7 +3700,7 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
             }
             
             // TTR recommendations
-            if (currentAge >= AUSTRALIAN_RULES.PRESERVATION_AGE && !ttrData.planned) {
+            if (currentAge >= AUSTRALIAN_RULES.PRESERVATION_AGE && (!ttrData || !ttrData.planned)) {
                 recommendationsList.innerHTML += `
                     <div class="recommendation">
                         <h4>Consider Transition to Retirement</h4>
@@ -3582,7 +3715,7 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
             }
             
             // Downsizing recommendations
-            if (currentAge >= 55 && !downsizingData.planned) {
+            if (currentAge >= 55 && (!downsizingData || !downsizingData.planned)) {
                 recommendationsList.innerHTML += `
                     <div class="recommendation">
                         <h4>Evaluate Downsizing Potential</h4>
@@ -3627,7 +3760,7 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
             }
             
             // SMSF recommendations
-            if (superBalance < 200000 && smsfData.hasSmsf) {
+            if (superBalance < 200000 && smsfData && smsfData.hasSmsf) {
                 recommendationsList.innerHTML += `
                     <div class="recommendation warning">
                         <h4>Review SMSF Viability</h4>
@@ -3687,7 +3820,9 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
     }
     
     // Save data to local storage
-    saveBtn.addEventListener('click', saveData);
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveData);
+    }
     
     function saveData() {
         const data = {
@@ -3706,17 +3841,17 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
             otherRetirementCosts: otherRetirementCosts.value,
             annualChildCost: annualChildCost.value,
             educationCosts: educationCosts.value,
-            hasPartner: hasPartnerCheckbox.checked,
+            hasPartner: hasPartnerCheckbox ? hasPartnerCheckbox.checked : false,
             partnerAge: partnerAge.value,
             partnerRetirementAge: partnerRetirementAge.value,
-            partnerKeepWorking: partnerKeepWorking.checked,
+            partnerKeepWorking: partnerKeepWorking ? partnerKeepWorking.checked : false,
             partnerIncome: partnerIncome.value,
             partnerSuper: partnerSuper.value,
             partnerContribution: partnerContribution.value,
-            considerDownsizing: considerDownsizingCheckbox.checked,
+            considerDownsizing: considerDownsizingCheckbox ? considerDownsizingCheckbox.checked : false,
             downsizeValue: downsizeValue.value,
             downsizeAge: downsizeAge.value,
-            considerTTR: considerTTRCheckbox.checked,
+            considerTTR: considerTTRCheckbox ? considerTTRCheckbox.checked : false,
             ttrStartAge: ttrStartAge.value,
             ttrIncome: ttrIncome.value,
             ttrSalarySacrifice: ttrSalarySacrifice.value,
@@ -3728,12 +3863,12 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
             primaryResidenceDebt: primaryResidenceDebt.value,
             otherAssets: otherAssets.value,
             personalDebt: personalDebt.value,
-            hasSmsf: hasSmsfCheckbox.checked,
+            hasSmsf: hasSmsfCheckbox ? hasSmsfCheckbox.checked : false,
             smsfAdminCosts: smsfAdminCosts.value,
-            highIncomeEarner: highIncomeEarnerCheckbox.checked,
-            hasIncomeProtection: hasIncomeProtection.checked,
-            hasLifeInsurance: hasLifeInsurance.checked,
-            hasTpdInsurance: hasTpdInsurance.checked,
+            highIncomeEarner: highIncomeEarnerCheckbox ? highIncomeEarnerCheckbox.checked : false,
+            hasIncomeProtection: hasIncomeProtection ? hasIncomeProtection.checked : false,
+            hasLifeInsurance: hasLifeInsurance ? hasLifeInsurance.checked : false,
+            hasTpdInsurance: hasTpdInsurance ? hasTpdInsurance.checked : false,
             dependents: dependents,
             lastUpdated: new Date().toISOString()
         };
@@ -3743,7 +3878,9 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
     }
     
     // Load data from local storage
-    loadBtn.addEventListener('click', loadData);
+    if (loadBtn) {
+        loadBtn.addEventListener('click', loadData);
+    }
     
     function loadData() {
         const savedData = localStorage.getItem('australianRetirementPlannerData');
@@ -3774,40 +3911,47 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
                 dependentCounter = Math.max(...dependents.map(d => d.id)) + 1;
                 renderDependents();
                 updateExpenseTimelinePreview();
+                generateExpenseTimelineChart();
             }
             
             // Load partner data
-            hasPartnerCheckbox.checked = data.hasPartner || false;
-            if (data.hasPartner) {
-                partnerDetails.classList.remove('hidden');
-                partnerAge.value = data.partnerAge || 42;
-                partnerRetirementAge.value = data.partnerRetirementAge || 65;
-                partnerKeepWorking.checked = data.partnerKeepWorking || false;
-                partnerIncome.value = data.partnerIncome || 0;
-                partnerSuper.value = data.partnerSuper || 0;
-                partnerContribution.value = data.partnerContribution || 0;
-            } else {
-                partnerDetails.classList.add('hidden');
+            if (hasPartnerCheckbox) {
+                hasPartnerCheckbox.checked = data.hasPartner || false;
+                if (data.hasPartner) {
+                    partnerDetails.classList.remove('hidden');
+                    partnerAge.value = data.partnerAge || 42;
+                    partnerRetirementAge.value = data.partnerRetirementAge || 65;
+                    partnerKeepWorking.checked = data.partnerKeepWorking || false;
+                    partnerIncome.value = data.partnerIncome || 0;
+                    partnerSuper.value = data.partnerSuper || 0;
+                    partnerContribution.value = data.partnerContribution || 0;
+                } else {
+                    partnerDetails.classList.add('hidden');
+                }
             }
             
             // Load strategy data
-            considerDownsizingCheckbox.checked = data.considerDownsizing || false;
-            if (data.considerDownsizing) {
-                downsizingDetails.classList.remove('hidden');
-                downsizeValue.value = data.downsizeValue || 0;
-                downsizeAge.value = data.downsizeAge || 70;
-            } else {
-                downsizingDetails.classList.add('hidden');
+            if (considerDownsizingCheckbox) {
+                considerDownsizingCheckbox.checked = data.considerDownsizing || false;
+                if (data.considerDownsizing) {
+                    downsizingDetails.classList.remove('hidden');
+                    downsizeValue.value = data.downsizeValue || 0;
+                    downsizeAge.value = data.downsizeAge || 70;
+                } else {
+                    downsizingDetails.classList.add('hidden');
+                }
             }
             
-            considerTTRCheckbox.checked = data.considerTTR || false;
-            if (data.considerTTR) {
-                ttrDetails.classList.remove('hidden');
-                ttrStartAge.value = data.ttrStartAge || 60;
-                ttrIncome.value = data.ttrIncome || 50;
-                ttrSalarySacrifice.value = data.ttrSalarySacrifice || 15;
-            } else {
-                ttrDetails.classList.add('hidden');
+            if (considerTTRCheckbox) {
+                considerTTRCheckbox.checked = data.considerTTR || false;
+                if (data.considerTTR) {
+                    ttrDetails.classList.remove('hidden');
+                    ttrStartAge.value = data.ttrStartAge || 60;
+                    ttrIncome.value = data.ttrIncome || 50;
+                    ttrSalarySacrifice.value = data.ttrSalarySacrifice || 15;
+                } else {
+                    ttrDetails.classList.add('hidden');
+                }
             }
             
             riskProfile.value = data.riskProfile || 'moderate';
@@ -3822,21 +3966,25 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
             personalDebt.value = data.personalDebt || 0;
             
             // Load SMSF data
-            hasSmsfCheckbox.checked = data.hasSmsf || false;
-            if (data.hasSmsf) {
-                smsfDetails.classList.remove('hidden');
-                smsfAdminCosts.value = data.smsfAdminCosts || 0;
-            } else {
-                smsfDetails.classList.add('hidden');
+            if (hasSmsfCheckbox) {
+                hasSmsfCheckbox.checked = data.hasSmsf || false;
+                if (data.hasSmsf) {
+                    smsfDetails.classList.remove('hidden');
+                    smsfAdminCosts.value = data.smsfAdminCosts || 0;
+                } else {
+                    smsfDetails.classList.add('hidden');
+                }
             }
             
             // Load high income earner flag
-            highIncomeEarnerCheckbox.checked = data.highIncomeEarner || false;
+            if (highIncomeEarnerCheckbox) {
+                highIncomeEarnerCheckbox.checked = data.highIncomeEarner || false;
+            }
             
             // Load insurance data
-            hasIncomeProtection.checked = data.hasIncomeProtection || false;
-            hasLifeInsurance.checked = data.hasLifeInsurance || false;
-            hasTpdInsurance.checked = data.hasTpdInsurance || false;
+            if (hasIncomeProtection) hasIncomeProtection.checked = data.hasIncomeProtection || false;
+            if (hasLifeInsurance) hasLifeInsurance.checked = data.hasLifeInsurance || false;
+            if (hasTpdInsurance) hasTpdInsurance.checked = data.hasTpdInsurance || false;
             
             alert('Your saved retirement data has been loaded!');
             
@@ -3848,48 +3996,56 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
     }
     
     // Reset to defaults
-    resetBtn.addEventListener('click', function() {
-        if (confirm('Are you sure you want to reset all fields to their default values? This will erase any unsaved changes.')) {
-            location.reload();
-        }
-    });
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+            if (confirm('Are you sure you want to reset all fields to their default values? This will erase any unsaved changes.')) {
+                location.reload();
+            }
+        });
+    }
     
     // Export as PDF
-    exportPdfBtn.addEventListener('click', () => {
-        alert('In a full implementation, this would generate a PDF report. For now, use the print function.');
-    });
+    if (exportPdfBtn) {
+        exportPdfBtn.addEventListener('click', () => {
+            alert('In a full implementation, this would generate a PDF report. For now, use the print function.');
+        });
+    }
     
     // Print plan
-    printPlanBtn.addEventListener('click', () => {
-        window.print();
-    });
+    if (printPlanBtn) {
+        printPlanBtn.addEventListener('click', () => {
+            window.print();
+        });
+    }
     
     // Save report
-    saveReportBtn.addEventListener('click', () => {
-        const reportData = {
-            timestamp: new Date().toISOString(),
-            inputs: {
-                currentAge: currentAge.value,
-                retirementAge: retirementAge.value,
-                currentSuper: currentSuper.value,
-                currentIncome: currentIncome.value,
-                dependents: dependents.length
-            },
-            results: {
-                netWorth: netWorthTotal.textContent,
-            }
-        };
-        
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reportData, null, 2));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", "retirement_plan_report.json");
-        document.body.appendChild(downloadAnchorNode);
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
-        
-        alert('Retirement report saved!');
-    });
+    if (saveReportBtn) {
+        saveReportBtn.addEventListener('click', () => {
+            const reportData = {
+                timestamp: new Date().toISOString(),
+                inputs: {
+                    currentAge: currentAge.value,
+                    retirementAge: retirementAge.value,
+                    currentSuper: currentSuper.value,
+                    currentIncome: currentIncome.value,
+                    dependents: dependents.length
+                },
+                results: {
+                    netWorth: netWorthTotal ? netWorthTotal.textContent : 'Not calculated',
+                }
+            };
+            
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reportData, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "retirement_plan_report.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+            
+            alert('Retirement report saved!');
+        });
+    }
     
     // Set up auto-calculation
     function setupAutoCalculation() {
@@ -3932,7 +4088,7 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
     }
     
     function handleAutoCalculation() {
-        if (!autoCalculateCheckbox.checked) return;
+        if (!autoCalculateCheckbox || !autoCalculateCheckbox.checked) return;
         
         if (autoCalculateTimeout) {
             clearTimeout(autoCalculateTimeout);
@@ -3945,19 +4101,21 @@ function calculateAndDisplayScenario(scenarioAge, currentAge, lifeExpectancy, in
         }, 500);
     }
     
-    autoCalculateCheckbox.addEventListener('change', function() {
-        if (this.checked && resultsContent.classList.contains('hidden')) {
-            if (validateInputs()) {
-                calculateRetirement();
+    if (autoCalculateCheckbox) {
+        autoCalculateCheckbox.addEventListener('change', function() {
+            if (this.checked && resultsContent.classList.contains('hidden')) {
+                if (validateInputs()) {
+                    calculateRetirement();
+                }
             }
-        }
-    });
+        });
+    }
     
     // Set up event listeners for checkboxes
-    hasPartnerCheckbox.dispatchEvent(new Event('change'));
-    considerDownsizingCheckbox.dispatchEvent(new Event('change'));
-    considerTTRCheckbox.dispatchEvent(new Event('change'));
-    hasSmsfCheckbox.dispatchEvent(new Event('change'));
+    if (hasPartnerCheckbox) hasPartnerCheckbox.dispatchEvent(new Event('change'));
+    if (considerDownsizingCheckbox) considerDownsizingCheckbox.dispatchEvent(new Event('change'));
+    if (considerTTRCheckbox) considerTTRCheckbox.dispatchEvent(new Event('change'));
+    if (hasSmsfCheckbox) hasSmsfCheckbox.dispatchEvent(new Event('change'));
     
     // Set up auto-calculation
     setupAutoCalculation();
